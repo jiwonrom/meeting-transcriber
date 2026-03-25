@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "meeting-transcriber"
+version = "1.0.0"
+description = "macOS desktop app for real-time meeting transcription with AI-powered summaries"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+dependencies = [
+    "PyQt6>=6.6",
+    "sounddevice>=0.4.6",
+    "numpy>=1.26",
+    "keyring>=25.0",
+    "google-generativeai>=0.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-qt>=4.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+diarization = [
+    "pyannote.audio>=3.1",
+    "torch>=2.1",
+]
+video = [
+    "av>=12.0",
+]
+
+[project.scripts]
+meeting-transcriber = "meeting_transcriber.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-x --tb=short"

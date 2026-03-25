@@ -1,0 +1,63 @@
+{
+  "colors": {
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#F5F5F7",
+      "sidebar": "#F0F0F2",
+      "overlay": "rgba(0, 0, 0, 0.75)"
+    },
+    "text": {
+      "primary": "#1D1D1F",
+      "secondary": "#6E6E73",
+      "overlay": "#FFFFFF",
+      "accent": "#0071E3"
+    },
+    "border": {
+      "default": "#D2D2D7",
+      "focus": "#0071E3"
+    },
+    "status": {
+      "recording": "#FF3B30",
+      "processing": "#FF9500",
+      "success": "#34C759"
+    }
+  },
+  "typography": {
+    "fontFamily": "-apple-system, BlinkMacSystemFont, 'SF Pro Text'",
+    "fontSize": {
+      "caption": 12,
+      "body": 14,
+      "heading": 18,
+      "title": 24,
+      "overlay": 16
+    },
+    "fontWeight": {
+      "regular": 400,
+      "medium": 500,
+      "bold": 700
+    }
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32
+  },
+  "borderRadius": {
+    "sm": 6,
+    "md": 10,
+    "lg": 14,
+    "overlay": 12
+  },
+  "sidebar": {
+    "width": 260,
+    "itemHeight": 32,
+    "iconSize": 16
+  },
+  "overlay": {
+    "maxLines": 2,
+    "padding": 12,
+    "opacity": 0.85
+  }
+}
