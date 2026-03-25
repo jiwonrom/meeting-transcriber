@@ -25,7 +25,8 @@ OPTIONS = {
             "Meeting Transcriber needs microphone access "
             "to capture audio for real-time transcription."
         ),
-        "LSUIElement": True,
+        "NSApplicationName": "Meeting Transcriber",
+        "LSUIElement": False,
         "NSHighResolutionCapable": True,
     },
 }

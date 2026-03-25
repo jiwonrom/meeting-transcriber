@@ -3,38 +3,40 @@
     "background": {
       "primary": "#1C1C1E",
       "secondary": "#2C2C2E",
-      "sidebar": "#252528",
-      "overlay": "rgba(0, 0, 0, 0.85)"
+      "sidebar": "#1C1C1E",
+      "overlay": "rgba(20, 20, 22, 0.94)",
+      "elevated": "#2C2C2E",
+      "control": "#3A3A3C"
     },
     "text": {
       "primary": "#F5F5F7",
       "secondary": "#98989D",
-      "overlay": "#FFFFFF",
-      "accent": "#0A84FF"
+      "tertiary": "#6E6E73",
+      "muted": "#48484A",
+      "overlay": "#F5F5F7",
+      "accent": "#FF453A"
     },
     "border": {
-      "default": "#38383A",
-      "focus": "#0A84FF"
+      "default": "rgba(255, 255, 255, 0.08)",
+      "emphasis": "rgba(255, 255, 255, 0.15)",
+      "focus": "#FF453A"
     },
     "status": {
       "recording": "#FF453A",
       "processing": "#FF9F0A",
-      "success": "#30D158"
+      "success": "#30D158",
+      "error": "#FF453A"
     }
   },
   "typography": {
-    "fontFamily": "-apple-system, BlinkMacSystemFont, 'SF Pro Text'",
+    "fontFamily": "'SF Pro Text', 'Helvetica Neue', sans-serif",
+    "fontMono": "'SF Mono', 'Menlo', monospace",
     "fontSize": {
-      "caption": 12,
+      "caption": 11,
       "body": 14,
-      "heading": 18,
-      "title": 24,
-      "overlay": 16
-    },
-    "fontWeight": {
-      "regular": 400,
-      "medium": 500,
-      "bold": 700
+      "heading": 17,
+      "title": 22,
+      "overlay": 15
     }
   },
   "spacing": {
@@ -48,16 +50,16 @@
     "sm": 6,
     "md": 10,
     "lg": 14,
-    "overlay": 12
+    "overlay": 20
   },
   "sidebar": {
-    "width": 260,
-    "itemHeight": 32,
+    "width": 280,
+    "itemHeight": 56,
     "iconSize": 16
   },
   "overlay": {
     "maxLines": 2,
-    "padding": 12,
-    "opacity": 0.9
+    "padding": 16,
+    "opacity": 0.94
   }
 }

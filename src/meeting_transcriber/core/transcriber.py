@@ -5,6 +5,7 @@ import json
 import pathlib
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -113,11 +114,16 @@ class FileTranscriber:
         """
         validate_audio_file(audio_path)
 
+        # whisper-cli -oj는 JSON을 파일로 출력 (-of로 경로 지정 필요)
+        output_base = pathlib.Path(tempfile.mktemp(prefix="whisper_"))
+        output_json = output_base.with_suffix(".json")
+
         cmd = [
             self._cli_path,
             "-m", str(self._model_path),
             "-l", self._language,
             "-oj",
+            "-of", str(output_base),
             "-f", str(audio_path),
         ]
 
@@ -129,19 +135,38 @@ class FileTranscriber:
                 timeout=timeout,
             )
         except subprocess.TimeoutExpired as e:
+            output_json.unlink(missing_ok=True)
             raise TranscriptionError(
                 f"Transcription timed out after {timeout}s"
             ) from e
         except OSError as e:
+            output_json.unlink(missing_ok=True)
             raise TranscriptionError(f"Failed to execute whisper-cli: {e}") from e
 
         if result.returncode != 0:
+            output_json.unlink(missing_ok=True)
             raise TranscriptionError(
                 f"whisper-cli exited with code {result.returncode}: "
                 f"{result.stderr[:500]}"
             )
 
-        segments = _parse_whisper_output(result.stdout, self._language)
+        # JSON 파일 읽기
+        try:
+            raw_json = output_json.read_text(encoding="utf-8")
+        except FileNotFoundError as e:
+            raise TranscriptionError(
+                f"whisper-cli did not produce JSON output. "
+                f"Expected: {output_json}. stderr: {result.stderr[:200]}"
+            ) from e
+        finally:
+            output_json.unlink(missing_ok=True)
+
+        if not raw_json.strip():
+            raise TranscriptionError(
+                f"whisper-cli produced empty JSON. stderr: {result.stderr[:200]}"
+            )
+
+        segments = _parse_whisper_output(raw_json, self._language)
         duration = segments[-1]["end"] if segments else 0.0
 
         return TranscriptionResult(
@@ -175,7 +200,10 @@ def _parse_whisper_output(raw_json: str, language: str) -> list[dict[str, Any]]:
     try:
         data = json.loads(raw_json)
     except json.JSONDecodeError as e:
-        raise TranscriptionError(f"Failed to parse whisper-cli output: {e}") from e
+        preview = raw_json[:100] if raw_json else "(empty)"
+        raise TranscriptionError(
+            f"Failed to parse whisper-cli output: {e}. Preview: {preview}"
+        ) from e
 
     entries = data.get("transcription", [])
     segments: list[dict[str, Any]] = []

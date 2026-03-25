@@ -26,7 +26,7 @@ def _create_tray_icon(recording: bool = False) -> QIcon:
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    color = QColor("#FF3B30") if recording else QColor("#8E8E93")
+    color = QColor("#FF453A") if recording else QColor("#98989D")
     painter.setBrush(color)
     painter.setPen(QColor(0, 0, 0, 0))
     painter.drawEllipse(4, 4, size - 8, size - 8)

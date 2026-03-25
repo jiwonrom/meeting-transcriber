@@ -184,17 +184,34 @@ def transcriber(tmp_path: pathlib.Path) -> FileTranscriber:
         return FileTranscriber(model_name="small", language="en")
 
 
+def _mock_whisper_run(tmp_path: pathlib.Path, json_content: str) -> MagicMock:
+    """whisper-cli 실행을 mock한다. -of로 지정된 경로에 JSON 파일을 생성."""
+
+    def side_effect(cmd: list[str], **kwargs: object) -> MagicMock:
+        # cmd에서 -of 다음 값 찾기
+        if "-of" in cmd:
+            idx = cmd.index("-of")
+            output_base = pathlib.Path(cmd[idx + 1])
+            output_json = output_base.with_suffix(".json")
+            output_json.write_text(json_content, encoding="utf-8")
+
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        return result
+
+    return MagicMock(side_effect=side_effect)
+
+
 def test_transcribe_file_success(transcriber: FileTranscriber, tmp_path: pathlib.Path) -> None:
     """전사 성공 시 올바른 TranscriptionResult를 반환하는지 확인."""
     audio = tmp_path / "test.wav"
     audio.write_bytes(b"fake audio")
 
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    mock_result.stdout = SAMPLE_WHISPER_OUTPUT
-    mock_result.stderr = ""
+    mock_run = _mock_whisper_run(tmp_path, SAMPLE_WHISPER_OUTPUT)
 
-    with patch("subprocess.run", return_value=mock_result):
+    with patch("subprocess.run", mock_run):
         result = transcriber.transcribe_file(audio)
 
     assert isinstance(result, TranscriptionResult)
@@ -260,10 +277,7 @@ def test_language_parameter_in_cli_command(
     audio = tmp_path / "test.wav"
     audio.write_bytes(b"fake audio")
 
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    mock_result.stdout = '{"transcription": []}'
-    mock_result.stderr = ""
+    mock_run = _mock_whisper_run(tmp_path, '{"transcription": []}')
 
     with (
         patch("shutil.which", return_value="/usr/local/bin/whisper-cli"),
@@ -275,12 +289,12 @@ def test_language_parameter_in_cli_command(
             "meeting_transcriber.core.transcriber.get_model_path",
             return_value=model_file,
         ),
-        patch("subprocess.run", return_value=mock_result) as mock_run,
+        patch("subprocess.run", mock_run) as patched_run,
     ):
         t = FileTranscriber(model_name="small", language="ko")
         t.transcribe_file(audio)
 
-        cmd = mock_run.call_args[0][0]
+        cmd = patched_run.call_args[0][0]
         assert "-l" in cmd
         lang_idx = cmd.index("-l")
         assert cmd[lang_idx + 1] == "ko"

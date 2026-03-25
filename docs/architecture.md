@@ -41,7 +41,22 @@ src/meeting_transcriber/
 3. whisper-cli subprocess로 전사 → JSON 결과
 4. Signal로 Main Thread에 전달 → 오버레이 업데이트
 5. transcript.json에 세그먼트 추가 저장
-6. (v1.5) AI Worker에서 Gemini API 호출 → 요약/번역 결과
+6. AI Worker에서 Gemini API 호출 → 교열/요약/키워드/제목 자동 생성
+7. AI 결과를 transcript.json metadata에 저장
+8. TranscriptViewer 3탭 표시: 원본 | 교열 | 요약
+
+## v1.5 AI 처리 흐름
+
+```
+전사 완료 (TranscriptionResult)
+  → _run_ai_tasks() — API 키 있을 때만
+    → GeminiProvider.proofread() → metadata["proofread"]
+    → GeminiProvider.summarize() → metadata["summary"]
+    → GeminiProvider.extract_keywords() → metadata["tags"]
+    → GeminiProvider.generate_title() → metadata["title"]
+  → _on_ai_done() → transcript.json 업데이트
+  → TranscriptViewer 3탭에 표시
+```
 
 ## 파일 저장 구조
 

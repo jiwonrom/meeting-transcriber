@@ -142,7 +142,7 @@ class SettingsDialog(QDialog):
         form = QFormLayout(tab)
 
         info = QLabel("API keys are stored securely in macOS Keychain.")
-        info.setStyleSheet("color: #6E6E73; font-size: 12px;")
+        info.setObjectName("caption")
         info.setWordWrap(True)
         form.addRow(info)
 

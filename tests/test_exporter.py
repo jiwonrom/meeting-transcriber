@@ -168,6 +168,48 @@ def test_export_korean_content() -> None:
     assert "다음 주제로 넘어갑시다" in txt
 
 
+# -- AI 결과 포함 export --
+
+
+def _sample_ai_transcript() -> dict:
+    """AI 결과가 포함된 테스트용 transcript."""
+    t = _sample_transcript()
+    t["metadata"]["summary"] = "- Meeting covered Q1 roadmap\n- Action items assigned"
+    t["metadata"]["tags"] = ["meeting", "roadmap", "Q1"]
+    t["metadata"]["proofread"] = "Good morning everyone. Let us get started."
+    return t
+
+
+def test_export_markdown_with_ai_results() -> None:
+    """AI 결과가 Markdown에 포함되는지 확인."""
+    md = export_to_markdown(_sample_ai_transcript(), include_ai_results=True)
+    assert "## Summary" in md
+    assert "Q1 roadmap" in md
+    assert "**Keywords**" in md
+    assert "meeting, roadmap, Q1" in md
+
+
+def test_export_markdown_without_ai_results() -> None:
+    """include_ai_results=False일 때 AI 결과가 제외되는지 확인."""
+    md = export_to_markdown(_sample_ai_transcript(), include_ai_results=False)
+    assert "## Summary" not in md
+    assert "**Keywords**" not in md
+
+
+def test_export_txt_with_ai_results() -> None:
+    """AI 결과가 TXT에 포함되는지 확인."""
+    txt = export_to_txt(_sample_ai_transcript(), include_ai_results=True)
+    assert "Summary:" in txt
+    assert "Q1 roadmap" in txt
+    assert "Keywords:" in txt
+
+
+def test_export_txt_without_ai_results() -> None:
+    """include_ai_results=False일 때 AI 결과가 제외되는지 확인."""
+    txt = export_to_txt(_sample_ai_transcript(), include_ai_results=False)
+    assert "Summary:" not in txt
+
+
 # -- save_export --
 
 

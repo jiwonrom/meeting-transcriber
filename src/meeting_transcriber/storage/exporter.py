@@ -50,6 +50,7 @@ def export_to_markdown(
     *,
     include_metadata: bool = True,
     include_timestamps: bool = True,
+    include_ai_results: bool = True,
 ) -> str:
     """transcript를 Markdown 형식으로 내보낸다.
 
@@ -57,6 +58,7 @@ def export_to_markdown(
         transcript: transcript.json 스키마를 따르는 딕셔너리
         include_metadata: 메타데이터 헤더 포함 여부
         include_timestamps: 세그먼트 타임스탬프 포함 여부
+        include_ai_results: AI 처리 결과(요약, 키워드) 포함 여부
 
     Returns:
         Markdown 포맷 문자열
@@ -86,8 +88,23 @@ def export_to_markdown(
             parts.append(f"- **Languages**: {', '.join(languages)}")
 
         parts.append("")
-        parts.append("---")
-        parts.append("")
+
+    # AI 결과
+    if include_ai_results:
+        summary = metadata.get("summary", "")
+        if summary:
+            parts.append("## Summary")
+            parts.append("")
+            parts.append(summary)
+            parts.append("")
+
+        tags = metadata.get("tags", [])
+        if tags:
+            parts.append(f"**Keywords**: {', '.join(tags)}")
+            parts.append("")
+
+    parts.append("---")
+    parts.append("")
 
     # 세그먼트
     for seg in segments:
@@ -109,12 +126,14 @@ def export_to_txt(
     transcript: dict[str, Any],
     *,
     include_timestamps: bool = True,
+    include_ai_results: bool = True,
 ) -> str:
     """transcript를 플레인 텍스트 형식으로 내보낸다.
 
     Args:
         transcript: transcript.json 스키마를 따르는 딕셔너리
         include_timestamps: 세그먼트 타임스탬프 포함 여부
+        include_ai_results: AI 처리 결과(요약, 키워드) 포함 여부
 
     Returns:
         플레인 텍스트 문자열
@@ -124,7 +143,6 @@ def export_to_txt(
 
     parts: list[str] = []
 
-    # 제목
     title = metadata.get("title", "Untitled")
     parts.append(title)
 
@@ -137,6 +155,19 @@ def export_to_txt(
         parts.append(f"Duration: {_format_duration(duration)}")
 
     parts.append("")
+
+    # AI 결과
+    if include_ai_results:
+        summary = metadata.get("summary", "")
+        if summary:
+            parts.append("Summary:")
+            parts.append(summary)
+            parts.append("")
+
+        tags = metadata.get("tags", [])
+        if tags:
+            parts.append(f"Keywords: {', '.join(tags)}")
+            parts.append("")
 
     # 세그먼트
     for seg in segments:

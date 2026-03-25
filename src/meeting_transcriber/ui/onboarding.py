@@ -107,11 +107,11 @@ class OnboardingWizard(QDialog):
         layout.setSpacing(16)
 
         title = QLabel("Welcome to Meeting Transcriber")
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title.setStyleSheet("font-size: 22px; font-weight: bold;")
         layout.addWidget(title)
 
         subtitle = QLabel("Select your primary language:")
-        subtitle.setStyleSheet("font-size: 14px; color: #6E6E73;")
+        subtitle.setStyleSheet("font-size: 14px; color: #98989D;")
         layout.addWidget(subtitle)
 
         self._lang_group = QButtonGroup(page)
@@ -140,7 +140,7 @@ class OnboardingWizard(QDialog):
         layout.setSpacing(16)
 
         title = QLabel("Download Whisper Model")
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title.setStyleSheet("font-size: 22px; font-weight: bold;")
         layout.addWidget(title)
 
         self._download_label = QLabel(
@@ -156,7 +156,7 @@ class OnboardingWizard(QDialog):
         layout.addWidget(self._progress_bar)
 
         self._progress_label = QLabel("")
-        self._progress_label.setStyleSheet("color: #6E6E73;")
+        self._progress_label.setStyleSheet("color: #98989D;")
         layout.addWidget(self._progress_label)
 
         layout.addStretch()
@@ -169,7 +169,7 @@ class OnboardingWizard(QDialog):
         layout.setSpacing(16)
 
         title = QLabel("Microphone Access")
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title.setStyleSheet("font-size: 22px; font-weight: bold;")
         layout.addWidget(title)
 
         info = QLabel(
