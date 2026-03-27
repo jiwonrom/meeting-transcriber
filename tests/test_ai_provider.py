@@ -1,7 +1,9 @@
 """AI provider 모듈 단위 테스트."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from meeting_transcriber.ai.provider_base import AIProvider
 from meeting_transcriber.ai.tasks import AIResult, AITaskWorker
@@ -166,10 +168,347 @@ def test_ai_task_worker_progress_signals(qtbot: object) -> None:
 
 def test_gemini_provider_requires_api_key() -> None:
     """API 키 없으면 ValueError를 발생시키는지 확인."""
-    import pytest
-
     with patch("meeting_transcriber.ai.gemini_provider.get_api_key", return_value=None):
         from meeting_transcriber.ai.gemini_provider import GeminiProvider
 
         with pytest.raises(ValueError, match="API key not found"):
             GeminiProvider()
+
+
+# -- OpenAIProvider 테스트 (mock) --
+
+
+def _make_openai_mock_response(content: str) -> MagicMock:
+    """OpenAI chat completion mock 응답을 생성한다."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = content
+    return mock_response
+
+
+def test_openai_provider_implements_abc() -> None:
+    """OpenAIProvider가 AIProvider ABC를 구현하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_cls.return_value = MagicMock()
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        assert isinstance(provider, AIProvider)
+
+
+def test_openai_provider_requires_api_key() -> None:
+    """API 키 없으면 ValueError를 발생시키는지 확인."""
+    with patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value=None):
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        with pytest.raises(ValueError, match="API key not found"):
+            OpenAIProvider()
+
+
+def test_openai_provider_summarize() -> None:
+    """OpenAI summarize가 동작하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            "- Summary point 1\n- Summary point 2"
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        result = provider.summarize("Test transcript text")
+        assert "Summary point 1" in result
+        mock_client.chat.completions.create.assert_called_once()
+
+
+def test_openai_provider_proofread() -> None:
+    """OpenAI proofread가 동작하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            "The quick brown fox"
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        result = provider.proofread("teh quick brown fox")
+        assert result == "The quick brown fox"
+
+
+def test_openai_provider_extract_keywords() -> None:
+    """OpenAI extract_keywords가 리스트를 반환하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            "AI, transcription, meeting"
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        keywords = provider.extract_keywords("AI meeting transcription text")
+        assert isinstance(keywords, list)
+        assert len(keywords) == 3
+        assert "AI" in keywords
+
+
+# -- AnthropicProvider 테스트 (mock) --
+
+
+def _make_anthropic_mock_response(text: str) -> MagicMock:
+    """Anthropic messages mock 응답을 생성한다."""
+    mock_response = MagicMock()
+    mock_content = MagicMock()
+    mock_content.text = text
+    mock_response.content = [mock_content]
+    return mock_response
+
+
+def test_anthropic_provider_implements_abc() -> None:
+    """AnthropicProvider가 AIProvider ABC를 구현하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
+        patch(
+            "meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"
+        ),
+    ):
+        mock_cls.return_value = MagicMock()
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+
+        provider = AnthropicProvider()
+        assert isinstance(provider, AIProvider)
+
+
+def test_anthropic_provider_requires_api_key() -> None:
+    """API 키 없으면 ValueError를 발생시키는지 확인."""
+    with patch("meeting_transcriber.ai.anthropic_provider.get_api_key", return_value=None):
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+
+        with pytest.raises(ValueError, match="API key not found"):
+            AnthropicProvider()
+
+
+def test_anthropic_provider_summarize() -> None:
+    """Anthropic summarize가 동작하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
+        patch(
+            "meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"
+        ),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = _make_anthropic_mock_response(
+            "- Summary from Claude"
+        )
+
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+
+        provider = AnthropicProvider()
+        result = provider.summarize("Test transcript text")
+        assert "Summary from Claude" in result
+        mock_client.messages.create.assert_called_once()
+
+
+# -- FailingProvider (모든 메서드 실패) --
+
+
+class FailingMockProvider(AIProvider):
+    """모든 메서드에서 예외를 발생시키는 테스트 프로바이더."""
+
+    def summarize(self, text: str, *, language: str = "auto") -> str:
+        raise RuntimeError("FailingMockProvider error")
+
+    def proofread(self, text: str, *, language: str = "auto") -> str:
+        raise RuntimeError("FailingMockProvider error")
+
+    def translate(self, text: str, *, target_language: str) -> str:
+        raise RuntimeError("FailingMockProvider error")
+
+    def extract_keywords(self, text: str, *, max_keywords: int = 10) -> list[str]:
+        raise RuntimeError("FailingMockProvider error")
+
+    def generate_title(self, text: str) -> str:
+        raise RuntimeError("FailingMockProvider error")
+
+
+# -- ProviderManager 테스트 --
+
+
+def test_provider_manager_default_chain() -> None:
+    """기본 설정으로 gemini key만 있을 때 체인이 1개인지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    settings = {"ai": {"default_provider": "gemini", "task_overrides": {}}}
+
+    with patch.object(manager, "_has_key", side_effect=lambda n: n == "gemini"):
+        with patch.object(manager, "_instantiate", return_value=MockProvider()):
+            chain = manager.get_provider_chain(settings)
+            assert len(chain) == 1
+
+
+def test_provider_manager_multi_chain() -> None:
+    """gemini+openai key가 있으면 체인이 2개인지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    settings = {"ai": {"default_provider": "gemini", "task_overrides": {}}}
+
+    with patch.object(
+        manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")
+    ):
+        with patch.object(manager, "_instantiate", return_value=MockProvider()):
+            chain = manager.get_provider_chain(settings)
+            assert len(chain) == 2
+
+
+def test_provider_manager_custom_default() -> None:
+    """default=openai일 때 openai가 체인 첫 번째인지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    settings = {"ai": {"default_provider": "openai", "task_overrides": {}}}
+
+    providers_created: list[str] = []
+
+    def mock_instantiate(name: str) -> MockProvider:
+        providers_created.append(name)
+        return MockProvider()
+
+    with patch.object(
+        manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")
+    ):
+        with patch.object(manager, "_instantiate", side_effect=mock_instantiate):
+            chain = manager.get_provider_chain(settings)
+            assert len(chain) == 2
+            assert providers_created[0] == "openai"
+
+
+def test_provider_manager_fallback_success() -> None:
+    """첫 번째 프로바이더 실패 시 두 번째 프로바이더 결과를 반환하는지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    chain = [FailingMockProvider(), MockProvider()]
+
+    result, msg = manager.execute_with_fallback(chain, "summarize", "test text")
+    assert "Point 1" in result
+    assert msg is not None  # fallback이 발생했으므로 메시지가 있어야 함
+
+
+def test_provider_manager_fallback_status() -> None:
+    """첫 시도 성공 시 fallback_message가 None인지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    chain = [MockProvider()]
+
+    result, msg = manager.execute_with_fallback(chain, "summarize", "test text")
+    assert "Point 1" in result
+    assert msg is None
+
+
+def test_provider_manager_all_fail() -> None:
+    """모든 프로바이더 실패 시 RuntimeError를 발생시키는지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    chain = [FailingMockProvider(), FailingMockProvider()]
+
+    with pytest.raises(RuntimeError, match="All providers failed"):
+        manager.execute_with_fallback(chain, "summarize", "test text")
+
+
+def test_provider_manager_task_override() -> None:
+    """task_overrides가 있을 때 해당 프로바이더가 우선인지 확인."""
+    from meeting_transcriber.ai.provider_manager import ProviderManager
+
+    manager = ProviderManager()
+    settings = {
+        "ai": {
+            "default_provider": "gemini",
+            "task_overrides": {"summarize": "openai"},
+        }
+    }
+
+    providers_created: list[str] = []
+
+    def mock_instantiate(name: str) -> MockProvider:
+        providers_created.append(name)
+        return MockProvider()
+
+    with patch.object(
+        manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")
+    ):
+        with patch.object(manager, "_instantiate", side_effect=mock_instantiate):
+            chain = manager.get_provider_for_task("summarize", settings)
+            assert len(chain) >= 1
+            assert providers_created[0] == "openai"
+
+
+# -- FallbackProvider 테스트 --
+
+
+def test_fallback_provider_is_aiprovider() -> None:
+    """FallbackProvider가 AIProvider 인스턴스인지 확인."""
+    from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+
+    manager = ProviderManager()
+    chain = [MockProvider()]
+    provider = FallbackProvider(manager, chain)
+    assert isinstance(provider, AIProvider)
+
+
+def test_fallback_provider_summarize_uses_fallback() -> None:
+    """FallbackProvider.summarize가 execute_with_fallback을 통해 결과를 반환하는지 확인."""
+    from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+
+    manager = ProviderManager()
+    chain = [MockProvider()]
+    provider = FallbackProvider(manager, chain)
+
+    result = provider.summarize("test text")
+    assert "Point 1" in result
+
+
+def test_fallback_provider_fallback_emits_message() -> None:
+    """폴백 발생 시 fallback_messages에 메시지가 추가되는지 확인."""
+    from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+
+    manager = ProviderManager()
+    chain = [FailingMockProvider(), MockProvider()]
+    provider = FallbackProvider(manager, chain)
+
+    result = provider.summarize("test text")
+    assert "Point 1" in result
+    assert len(provider.fallback_messages) == 1
+    assert "failed" in provider.fallback_messages[0].lower()
+
+
+def test_fallback_provider_proofread_uses_fallback() -> None:
+    """FallbackProvider.proofread가 execute_with_fallback을 통해 동작하는지 확인."""
+    from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+
+    manager = ProviderManager()
+    chain = [MockProvider()]
+    provider = FallbackProvider(manager, chain)
+
+    result = provider.proofread("teh quick brown fox")
+    assert result == "the quick brown fox"
