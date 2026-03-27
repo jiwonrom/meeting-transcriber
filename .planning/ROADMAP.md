@@ -66,7 +66,12 @@ Plans:
   2. Transcript viewer displays color-coded speaker labels next to each segment
   3. Existing v1.x transcripts load without error (schema v2.0 migration is backward-compatible)
   4. SRT/VTT exports include speaker labels prefixed to each subtitle entry when diarization data is available
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Core backend: DiarizationWorker, temporal alignment, schema v2.0, constants/exceptions
+- [ ] 03-02-PLAN.md — UI integration: TranscriptViewer speaker labels, Identify Speakers button, speaker rename, Settings HF token, auto-diarization
+
 **UI hint**: yes
 
 ### Phase 4: Meeting Intelligence
@@ -101,6 +106,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Export & Multi-Provider | 2/3 | Executing | - |
 | 2. System Audio Capture | 2/3 | In Progress|  |
-| 3. Speaker Diarization | 0/TBD | Not started | - |
+| 3. Speaker Diarization | 0/2 | Planned | - |
 | 4. Meeting Intelligence | 0/TBD | Not started | - |
 | 5. Cross-Meeting Analysis | 0/TBD | Not started | - |
