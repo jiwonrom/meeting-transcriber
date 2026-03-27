@@ -4,13 +4,14 @@ from __future__ import annotations
 import pathlib
 
 # 앱 기본 정보
-APP_NAME = "Meeting Transcriber"
-APP_VERSION = "1.0.0"
+APP_NAME = "Scribe"
+APP_VERSION = "1.5.0"
 
 # 저장 경로
 DEFAULT_WORKSPACE_DIR = pathlib.Path.home() / ".meeting_transcriber"
 MODELS_DIR = DEFAULT_WORKSPACE_DIR / "models"
 SETTINGS_FILE = DEFAULT_WORKSPACE_DIR / "settings.json"
+LOGS_DIR = DEFAULT_WORKSPACE_DIR / "logs"
 
 # 지원 언어
 SUPPORTED_LANGUAGES = ("en", "ko", "zh", "ja")
@@ -37,3 +38,8 @@ OVERLAY_MAX_LINES = 5
 
 # 지원 오디오 포맷
 SUPPORTED_AUDIO_FORMATS = (".wav", ".mp3", ".m4a")
+
+# 시스템 오디오 (BlackHole)
+BLACKHOLE_DEVICE_NAMES = ("blackhole 2ch", "blackhole 16ch", "blackhole 64ch")
+AGGREGATE_DEVICE_NAME = "Scribe Audio (Mic + System)"
+AGGREGATE_DEVICE_UID = "com.scribe.aggregate-device"

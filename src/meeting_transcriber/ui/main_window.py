@@ -1,7 +1,9 @@
 """메인 윈도우 — Apple Voice Memos 스타일 UI."""
+
 from __future__ import annotations
 
 import json
+import logging
 import pathlib
 import tempfile
 from datetime import UTC, datetime
@@ -11,11 +13,14 @@ import numpy as np
 from PyQt6.QtCore import QSize, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath
 from PyQt6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSplitter,
@@ -38,6 +43,8 @@ from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.utils.config import load_settings
 from meeting_transcriber.utils.constants import APP_NAME
 
+logger = logging.getLogger(__name__)
+
 # ============================================================
 # 녹음 버튼 (큰 원형, Voice Memos 스타일)
 # ============================================================
@@ -49,9 +56,22 @@ class RecordButton(QPushButton):
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
         self._recording = False
-        self.setFixedSize(64, 64)
+        self._recording_color = QColor("#FF453A")
+        self._ring_color = QColor(255, 255, 255, 38)
+        self.setFixedSize(56, 56)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("border: none; background: transparent;")
+
+    def set_theme_colors(self, recording: str, ring_rgba: tuple[int, int, int, int]) -> None:
+        """테마 색상을 설정한다.
+
+        Args:
+            recording: 녹음 상태 색상 (hex)
+            ring_rgba: 외부 링 RGBA 튜플
+        """
+        self._recording_color = QColor(recording)
+        self._ring_color = QColor(*ring_rgba)
+        self.update()
 
     def set_recording(self, recording: bool) -> None:
         """녹음 상태를 설정한다."""
@@ -63,29 +83,28 @@ class RecordButton(QPushButton):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        red = QColor("#FF453A")  # status.recording
-        painter.setBrush(red)
+        painter.setBrush(self._recording_color)
         painter.setPen(Qt.PenStyle.NoPen)
 
         if self._recording:
             # 정지 아이콘: 둥근 사각형
-            size = 22
+            size = 18
             x = (self.width() - size) // 2
             y = (self.height() - size) // 2
             path = QPainterPath()
             path.addRoundedRect(float(x), float(y), float(size), float(size), 4.0, 4.0)
-            painter.fillPath(path, red)
+            painter.fillPath(path, self._recording_color)
         else:
             # 녹음 아이콘: 큰 원
-            size = 48
+            size = 40
             x = (self.width() - size) // 2
             y = (self.height() - size) // 2
             painter.drawEllipse(x, y, size, size)
 
         # 외부 링
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QColor(255, 255, 255, 38))  # border.emphasis rgba
-        ring_size = 60
+        painter.setPen(self._ring_color)
+        ring_size = 52
         rx = (self.width() - ring_size) // 2
         ry = (self.height() - ring_size) // 2
         painter.drawEllipse(rx, ry, ring_size, ring_size)
@@ -190,6 +209,27 @@ class TranscriptViewer(QWidget):
 
         layout.addWidget(self._tabs)
 
+        # Export buttons — per D-03, export actions in transcript viewer toolbar
+        export_bar = QHBoxLayout()
+        export_bar.addStretch()
+
+        self._export_srt_btn = QPushButton("Export SRT")
+        self._export_srt_btn.setFixedWidth(100)
+        self._export_srt_btn.clicked.connect(self._export_srt)
+        export_bar.addWidget(self._export_srt_btn)
+
+        self._export_vtt_btn = QPushButton("Export VTT")
+        self._export_vtt_btn.setFixedWidth(100)
+        self._export_vtt_btn.clicked.connect(self._export_vtt)
+        export_bar.addWidget(self._export_vtt_btn)
+
+        self._export_obsidian_btn = QPushButton("Export to Obsidian")
+        self._export_obsidian_btn.setFixedWidth(140)
+        self._export_obsidian_btn.clicked.connect(self._export_obsidian)
+        export_bar.addWidget(self._export_obsidian_btn)
+
+        layout.addLayout(export_bar)
+
     def display_transcript(self, path: str) -> None:
         """transcript.json 파일을 3탭에 표시한다."""
         self._current_path = path
@@ -230,9 +270,7 @@ class TranscriptViewer(QWidget):
 
         # Tab 2: 요약 + 키워드
         summary = metadata.get("summary", "")
-        self._summary_edit.setPlainText(
-            summary if summary else "(No summary available)"
-        )
+        self._summary_edit.setPlainText(summary if summary else "(No summary available)")
 
         tags = metadata.get("tags", [])
         if tags:
@@ -247,12 +285,89 @@ class TranscriptViewer(QWidget):
 
         try:
             transcript = load_transcript(pathlib.Path(self._current_path))
-            transcript.setdefault("metadata", {})["proofread"] = (
-                self._proofread_edit.toPlainText()
-            )
+            transcript.setdefault("metadata", {})["proofread"] = self._proofread_edit.toPlainText()
             save_transcript(transcript, pathlib.Path(self._current_path))
         except Exception:
-            pass  # 저장 실패 무시 (상태바에서 알림은 MainWindow 담당)
+            logger.warning("Failed to save proofread: %s", self._current_path, exc_info=True)
+
+    def _export_srt(self) -> None:
+        """현재 트랜스크립트를 SRT 형식으로 내보낸다."""
+        if not self._current_path:
+            return
+        from meeting_transcriber.storage.exporter import export_to_srt, save_export
+
+        try:
+            transcript = load_transcript(pathlib.Path(self._current_path))
+        except Exception:
+            return
+
+        content = export_to_srt(transcript)
+        settings = load_settings()
+        default_dir = settings.get("export", {}).get("default_dir", "")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export SRT",
+            str(pathlib.Path(default_dir) / "transcript.srt") if default_dir else "transcript.srt",
+            "SRT Files (*.srt)",
+        )
+        if path:
+            save_export(content, pathlib.Path(path))
+
+    def _export_vtt(self) -> None:
+        """현재 트랜스크립트를 VTT 형식으로 내보낸다."""
+        if not self._current_path:
+            return
+        from meeting_transcriber.storage.exporter import export_to_vtt, save_export
+
+        try:
+            transcript = load_transcript(pathlib.Path(self._current_path))
+        except Exception:
+            return
+
+        content = export_to_vtt(transcript)
+        settings = load_settings()
+        default_dir = settings.get("export", {}).get("default_dir", "")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export VTT",
+            str(pathlib.Path(default_dir) / "transcript.vtt") if default_dir else "transcript.vtt",
+            "VTT Files (*.vtt)",
+        )
+        if path:
+            save_export(content, pathlib.Path(path))
+
+    def _export_obsidian(self) -> None:
+        """현재 트랜스크립트를 Obsidian 형식으로 내보낸다."""
+        if not self._current_path:
+            return
+        from meeting_transcriber.storage.exporter import (
+            export_to_obsidian,
+            obsidian_filename,
+            save_export,
+        )
+
+        try:
+            transcript = load_transcript(pathlib.Path(self._current_path))
+        except Exception:
+            return
+
+        content = export_to_obsidian(transcript)
+        settings = load_settings()
+        vault_path = settings.get("export", {}).get("obsidian_vault", "")
+
+        if not vault_path:
+            vault_path = QFileDialog.getExistingDirectory(
+                self,
+                "Select Obsidian Vault",
+                str(pathlib.Path.home()),
+            )
+            if not vault_path:
+                return
+
+        filename = obsidian_filename(transcript)
+        save_export(content, pathlib.Path(vault_path) / filename)
 
     def clear(self) -> None:
         """뷰어 내용을 초기화한다."""
@@ -369,7 +484,7 @@ class ChunkTranscriberThread(QThread):
             if text.strip():
                 self.text_ready.emit(text.strip(), segments)
         except Exception:
-            pass  # 실시간 전사 실패는 무시 (최종 전사에서 복구)
+            logger.debug("Chunk transcription failed", exc_info=True)
 
 
 # ============================================================
@@ -424,7 +539,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
 
-        sidebar_header = QLabel("  Recordings")
+        sidebar_header = QLabel("Recordings")
         sidebar_header.setFont(QFont("", 13, QFont.Weight.Bold))
         sidebar_header.setFixedHeight(40)
         sidebar_header.setStyleSheet("padding-left: 16px;")
@@ -433,6 +548,8 @@ class MainWindow(QMainWindow):
         self._recording_list = QListWidget()
         # 스타일은 ThemeEngine QSS에서 적용
         self._recording_list.currentItemChanged.connect(self._on_recording_selected)
+        self._recording_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._recording_list.customContextMenuRequested.connect(self._on_recording_context_menu)
         sidebar_layout.addWidget(self._recording_list)
 
         self._splitter.addWidget(sidebar)
@@ -456,9 +573,9 @@ class MainWindow(QMainWindow):
 
         # 하단: 녹음 컨트롤 바
         self._control_bar = QWidget()
-        self._control_bar.setFixedHeight(90)
+        self._control_bar.setFixedHeight(72)
         bar_layout = QVBoxLayout(self._control_bar)
-        bar_layout.setContentsMargins(0, 8, 0, 8)
+        bar_layout.setContentsMargins(0, 6, 0, 6)
         bar_layout.setSpacing(4)
 
         # 레벨 바
@@ -476,7 +593,7 @@ class MainWindow(QMainWindow):
         btn_row.setSpacing(16)
 
         self._duration_label = QLabel("00:00")
-        self._duration_label.setFixedWidth(60)
+        self._duration_label.setFixedWidth(50)
         self._duration_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
@@ -487,8 +604,8 @@ class MainWindow(QMainWindow):
         self._record_btn.clicked.connect(self._on_record_btn_clicked)
         btn_row.addWidget(self._record_btn)
 
-        self._status_label = QLabel("Tap to Record")
-        self._status_label.setFixedWidth(120)
+        self._status_label = QLabel("Ready")
+        self._status_label.setFixedWidth(100)
         self._status_label.setObjectName("caption")
         btn_row.addWidget(self._status_label)
 
@@ -538,6 +655,7 @@ class MainWindow(QMainWindow):
                 try:
                     transcript = load_transcript(t_path)
                 except Exception:
+                    logger.warning("Failed to load transcript: %s", t_path)
                     continue
 
                 meta = transcript.get("metadata", {})
@@ -564,6 +682,48 @@ class MainWindow(QMainWindow):
             self._empty_state.hide()
             self._transcript_viewer.show()
             self._transcript_viewer.display_transcript(path)
+
+    # -- 녹음 삭제 --
+
+    def _on_recording_context_menu(self, pos: Any) -> None:
+        """녹음 리스트 우클릭 컨텍스트 메뉴를 표시한다."""
+        item = self._recording_list.itemAt(pos)
+        if item is None:
+            return
+
+        menu = QMenu(self)
+        delete_action = menu.addAction("Delete")
+        chosen = menu.exec(self._recording_list.mapToGlobal(pos))
+        if chosen == delete_action:
+            self._delete_recording(item)
+
+    def _delete_recording(self, item: QListWidgetItem) -> None:
+        """녹음을 삭제한다."""
+        path_str = item.data(Qt.ItemDataRole.UserRole)
+        if not path_str:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Recording",
+            "Are you sure you want to delete this recording?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self._workspace.delete_recording(pathlib.Path(path_str))
+        except (ValueError, FileNotFoundError, OSError):
+            self._status_bar.showMessage("Failed to delete recording", 3000)
+            return
+
+        self._transcript_viewer.clear()
+        self._transcript_viewer.hide()
+        self._empty_state.show()
+        self._refresh_recording_list()
+        self._status_bar.showMessage("Recording deleted", 2000)
 
     # -- 녹음 컨트롤 --
 
@@ -618,7 +778,7 @@ class MainWindow(QMainWindow):
         self._record_seconds = 0
         self._duration_label.setText("00:00")
         self._status_label.setText("Recording...")
-        self._set_status_state( "recording")
+        self._set_status_state("recording")
         self._record_timer.start()
         self._status_bar.showMessage("Recording...")
         self.recording_started.emit()
@@ -630,7 +790,7 @@ class MainWindow(QMainWindow):
         self._record_timer.stop()
         self._level_bar.setValue(0)
         self._status_label.setText("Processing...")
-        self._set_status_state( "processing")
+        self._set_status_state("processing")
         self._status_bar.showMessage("Processing recording...")
         self.recording_stopped.emit()
 
@@ -642,7 +802,7 @@ class MainWindow(QMainWindow):
 
         if len(recording) == 0:
             self._status_label.setText("Tap to Record")
-            self._set_status_state( "idle")
+            self._set_status_state("idle")
             self._status_bar.showMessage("No audio recorded")
             return
 
@@ -655,7 +815,7 @@ class MainWindow(QMainWindow):
         self._record_timer.stop()
         self._level_bar.setValue(0)
         self._status_label.setText("Error")
-        self._set_status_state( "error")
+        self._set_status_state("error")
         self._status_bar.showMessage(f"Error: {message}")
 
     def _on_level_changed(self, level: float) -> None:
@@ -710,9 +870,7 @@ class MainWindow(QMainWindow):
             model_name=model,
             language=language,
         )
-        self._transcription_worker.progress.connect(
-            lambda msg: self._status_bar.showMessage(msg)
-        )
+        self._transcription_worker.progress.connect(lambda msg: self._status_bar.showMessage(msg))
         self._transcription_worker.finished.connect(
             lambda result: self._on_transcription_done(result, temp_wav)
         )
@@ -729,7 +887,7 @@ class MainWindow(QMainWindow):
 
         if isinstance(result, Exception):
             self._status_label.setText("Tap to Record")
-            self._set_status_state( "idle")
+            self._set_status_state("idle")
             self._status_bar.showMessage(f"Transcription failed: {result}")
             return
 
@@ -758,7 +916,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_recording_list()
         self._status_label.setText("Tap to Record")
-        self._set_status_state( "idle")
+        self._set_status_state("idle")
         self._status_bar.showMessage(f"Saved: {now}")
 
         for seg in result.segments:
@@ -769,39 +927,60 @@ class MainWindow(QMainWindow):
 
     # -- AI 처리 --
 
-    def _run_ai_tasks(
-        self, result: TranscriptionResult, transcript_path: pathlib.Path
-    ) -> None:
+    def _run_ai_tasks(self, result: TranscriptionResult, transcript_path: pathlib.Path) -> None:
         """전사 결과에 AI 처리(교열, 요약, 키워드, 제목)를 실행한다."""
-        from meeting_transcriber.utils.keychain import get_api_key
+        from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+        from meeting_transcriber.ai.tasks import AITaskWorker
 
-        api_key = get_api_key("gemini")
-        if not api_key:
-            return  # API 키 없으면 건너뜀
+        settings = load_settings()
+        manager = ProviderManager()
+
+        try:
+            chain = manager.get_provider_chain(settings)
+        except Exception:
+            return  # 프로바이더 초기화 실패
+
+        if not chain:
+            return  # API 키가 하나도 없음
 
         full_text = " ".join(s.get("text", "") for s in result.segments)
         if not full_text.strip():
             return
 
-        try:
-            from meeting_transcriber.ai.gemini_provider import GeminiProvider
-            from meeting_transcriber.ai.tasks import AITaskWorker
+        # FallbackProvider wraps the full chain — each AI method call
+        # automatically tries the next provider on failure (per D-13, BYOK-04)
+        provider = FallbackProvider(manager, chain)
 
-            provider = GeminiProvider(api_key=api_key)
+        try:
             self._ai_worker = AITaskWorker(
                 provider=provider,
                 text=full_text,
                 language=result.language,
             )
-            self._ai_worker.progress.connect(
-                lambda msg: self._status_bar.showMessage(msg)
-            )
+            self._ai_worker.progress.connect(lambda msg: self._status_bar.showMessage(msg))
+            # After worker finishes, check for fallback messages and display per D-14
             self._ai_worker.finished.connect(
-                lambda ai_result: self._on_ai_done(ai_result, transcript_path)
+                lambda ai_result: self._on_ai_done_with_fallback(
+                    ai_result, transcript_path, provider
+                )
             )
             self._ai_worker.start()
         except Exception as e:
             self._status_bar.showMessage(f"AI processing skipped: {e}")
+
+    def _on_ai_done_with_fallback(
+        self,
+        ai_result: Any,
+        transcript_path: pathlib.Path,
+        provider: Any,
+    ) -> None:
+        """AI 완료 후 폴백 메시지를 상태바에 표시하고 결과를 처리한다."""
+        # Show fallback messages in status bar per D-14
+        if hasattr(provider, "fallback_messages") and provider.fallback_messages:
+            fallback_info = "; ".join(provider.fallback_messages)
+            self._status_bar.showMessage(f"AI complete (fallback: {fallback_info})", 10000)
+        # Delegate to existing handler
+        self._on_ai_done(ai_result, transcript_path)
 
     def _on_ai_done(self, ai_result: Any, transcript_path: pathlib.Path) -> None:
         """AI 처리 완료 — 결과를 transcript에 저장한다."""

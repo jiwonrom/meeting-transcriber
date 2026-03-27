@@ -9,12 +9,21 @@ from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
 from meeting_transcriber.utils.constants import APP_NAME
 
+DEFAULT_RECORDING_COLOR = "#FF453A"
+DEFAULT_IDLE_COLOR = "#98989D"
 
-def _create_tray_icon(recording: bool = False) -> QIcon:
+
+def _create_tray_icon(
+    recording: bool = False,
+    recording_color: str = DEFAULT_RECORDING_COLOR,
+    idle_color: str = DEFAULT_IDLE_COLOR,
+) -> QIcon:
     """트레이 아이콘을 동적으로 생성한다.
 
     Args:
         recording: 녹음 중이면 True (빨간색), 아니면 False (회색)
+        recording_color: 녹음 상태 색상 (hex)
+        idle_color: 대기 상태 색상 (hex)
 
     Returns:
         16x16 원형 아이콘
@@ -26,7 +35,7 @@ def _create_tray_icon(recording: bool = False) -> QIcon:
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    color = QColor("#FF453A") if recording else QColor("#98989D")
+    color = QColor(recording_color) if recording else QColor(idle_color)
     painter.setBrush(color)
     painter.setPen(QColor(0, 0, 0, 0))
     painter.drawEllipse(4, 4, size - 8, size - 8)
@@ -54,6 +63,8 @@ class TrayIcon(QSystemTrayIcon):
         """
         super().__init__(parent)
         self._recording = False
+        self._recording_color = DEFAULT_RECORDING_COLOR
+        self._idle_color = DEFAULT_IDLE_COLOR
 
         self.setIcon(_create_tray_icon(recording=False))
         self.setToolTip(APP_NAME)
@@ -70,11 +81,11 @@ class TrayIcon(QSystemTrayIcon):
 
         self._menu.addSeparator()
 
-        self._show_window_action = QAction("Show Window", self)
+        self._show_window_action = QAction(f"Show {APP_NAME}", self)
         self._show_window_action.triggered.connect(self.show_window_requested.emit)
         self._menu.addAction(self._show_window_action)
 
-        self._overlay_action = QAction("Toggle Overlay", self)
+        self._overlay_action = QAction("Show/Hide Overlay", self)
         self._overlay_action.triggered.connect(self.overlay_toggle_requested.emit)
         self._menu.addAction(self._overlay_action)
 
@@ -94,7 +105,11 @@ class TrayIcon(QSystemTrayIcon):
 
     def _update_state(self) -> None:
         """아이콘과 메뉴 텍스트를 현재 상태에 맞게 업데이트한다."""
-        self.setIcon(_create_tray_icon(recording=self._recording))
+        self.setIcon(_create_tray_icon(
+            recording=self._recording,
+            recording_color=self._recording_color,
+            idle_color=self._idle_color,
+        ))
         self._record_action.setText(
             "Stop Recording" if self._recording else "Start Recording"
         )

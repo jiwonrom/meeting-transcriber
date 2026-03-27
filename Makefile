@@ -1,4 +1,4 @@
-.PHONY: setup test lint typecheck build clean
+.PHONY: setup test lint typecheck build clean icon
 
 setup:
 	pip install -e ".[dev]" --break-system-packages
@@ -20,18 +20,22 @@ lint:
 typecheck:
 	mypy src/ --ignore-missing-imports
 
-build:
+icon:
+	python scripts/generate_icon.py
+	@echo "✅ AppIcon.icns generated in resources/"
+
+build: icon
 	python setup.py py2app
 	@echo "✅ App bundle created in dist/"
 
 dmg: build
 	create-dmg \
-		--volname "Meeting Transcriber" \
+		--volname "Scribe" \
 		--window-size 600 400 \
 		--icon-size 100 \
 		--app-drop-link 450 200 \
-		"dist/Meeting Transcriber.dmg" \
-		"dist/Meeting Transcriber.app"
+		"dist/Scribe.dmg" \
+		"dist/Scribe.app"
 
 clean:
 	rm -rf build/ dist/ *.egg-info

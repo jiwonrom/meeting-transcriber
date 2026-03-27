@@ -13,6 +13,7 @@ from meeting_transcriber.ui.main_window import (
     TranscriptViewer,
     _fmt_duration,
 )
+from meeting_transcriber.utils.constants import APP_NAME
 
 
 def test_main_window_creation(qtbot: object, tmp_path: pathlib.Path) -> None:
@@ -20,7 +21,7 @@ def test_main_window_creation(qtbot: object, tmp_path: pathlib.Path) -> None:
     ws = WorkspaceManager(workspace_dir=tmp_path)
     window = MainWindow(workspace=ws)
     qtbot.addWidget(window)  # type: ignore[union-attr]
-    assert window.windowTitle() == "Meeting Transcriber"
+    assert window.windowTitle() == APP_NAME
 
 
 def test_main_window_has_splitter(qtbot: object, tmp_path: pathlib.Path) -> None:

@@ -4,6 +4,7 @@ from setuptools import setup
 APP = ["src/meeting_transcriber/app.py"]
 DATA_FILES = [
     ("design", ["design/tokens_light.json", "design/tokens_dark.json"]),
+    ("", ["resources/AppIcon.icns"]),
 ]
 OPTIONS = {
     "argv_emulation": False,
@@ -16,16 +17,17 @@ OPTIONS = {
         "meeting_transcriber.ai",
     ],
     "plist": {
-        "CFBundleName": "Meeting Transcriber",
-        "CFBundleDisplayName": "Meeting Transcriber",
-        "CFBundleIdentifier": "com.meetingtranscriber.app",
-        "CFBundleVersion": "1.0.0",
-        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleName": "Scribe",
+        "CFBundleDisplayName": "Scribe",
+        "CFBundleIdentifier": "com.scribe.app",
+        "CFBundleVersion": "1.5.0",
+        "CFBundleShortVersionString": "1.5.0",
         "NSMicrophoneUsageDescription": (
-            "Meeting Transcriber needs microphone access "
+            "Scribe needs microphone access "
             "to capture audio for real-time transcription."
         ),
-        "NSApplicationName": "Meeting Transcriber",
+        "NSApplicationName": "Scribe",
+        "CFBundleIconFile": "AppIcon",
         "LSUIElement": False,
         "NSHighResolutionCapable": True,
     },

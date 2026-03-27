@@ -4,14 +4,21 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
-from meeting_transcriber.utils.config import load_settings, save_settings
+from meeting_transcriber.utils.config import (
+    _default_settings,
+    invalidate_settings_cache,
+    load_settings,
+    save_settings,
+)
 
 
 def test_load_settings_returns_defaults_when_no_file(tmp_path: object) -> None:
     """settings.json이 없을 때 기본값을 반환하는지 확인."""
+    invalidate_settings_cache()
     fake_path = tmp_path / "nonexistent" / "settings.json"  # type: ignore[operator]
     with patch("meeting_transcriber.utils.config.SETTINGS_FILE", fake_path):
         settings = load_settings()
+    invalidate_settings_cache()
 
     assert settings["language"] == "auto"
     assert settings["whisper_model"] == "small"
@@ -19,10 +26,23 @@ def test_load_settings_returns_defaults_when_no_file(tmp_path: object) -> None:
     assert settings["theme"] == "system"
 
 
+def test_default_settings_system_audio_schema() -> None:
+    """기본 설정에 system_audio 섹션이 포함되어 있는지 확인."""
+    from meeting_transcriber.utils.config import _default_settings
+
+    settings = _default_settings()
+    sys_audio = settings["audio"]["system_audio"]
+    assert sys_audio["enabled"] is False
+    assert sys_audio["blackhole_uid"] is None
+    assert sys_audio["aggregate_device_uid"] is None
+    assert sys_audio["mic_device_uid"] is None
+
+
 def test_save_and_load_settings_roundtrip(tmp_path: object) -> None:
     """설정을 저장하고 다시 로드했을 때 동일한지 확인."""
     import pathlib
 
+    invalidate_settings_cache()
     workspace = pathlib.Path(str(tmp_path)) / ".meeting_transcriber"
     settings_file = workspace / "settings.json"
 
@@ -37,3 +57,70 @@ def test_save_and_load_settings_roundtrip(tmp_path: object) -> None:
         loaded = json.loads(settings_file.read_text(encoding="utf-8"))
         assert loaded["language"] == "ko"
         assert loaded["whisper_model"] == "medium"
+    invalidate_settings_cache()
+
+
+def test_settings_cache_returns_same_object(tmp_path: object) -> None:
+    """캐시된 설정이 디스크를 다시 읽지 않는지 확인."""
+    import pathlib
+
+    invalidate_settings_cache()
+    workspace = pathlib.Path(str(tmp_path)) / ".meeting_transcriber"
+    settings_file = workspace / "settings.json"
+
+    with (
+        patch("meeting_transcriber.utils.config.DEFAULT_WORKSPACE_DIR", workspace),
+        patch("meeting_transcriber.utils.config.SETTINGS_FILE", settings_file),
+    ):
+        # 첫 번째 호출: 디스크 읽기 (파일 없으므로 기본값)
+        s1 = load_settings()
+        # 두 번째 호출: 캐시에서 반환 (같은 객체)
+        s2 = load_settings()
+        assert s1 is s2
+
+        # save 후 캐시 갱신 확인
+        s1["language"] = "ja"
+        save_settings(s1)
+        s3 = load_settings()
+        assert s3["language"] == "ja"
+    invalidate_settings_cache()
+
+
+def test_default_settings_has_export_keys() -> None:
+    """기본 설정에 export 키가 포함되는지 확인."""
+    defaults = _default_settings()
+    assert "export" in defaults
+    assert defaults["export"]["default_dir"] == ""
+    assert defaults["export"]["obsidian_vault"] == ""
+
+
+def test_default_settings_has_ai_keys() -> None:
+    """기본 설정에 ai 키가 포함되는지 확인."""
+    defaults = _default_settings()
+    assert "ai" in defaults
+    assert defaults["ai"]["default_provider"] == "gemini"
+    assert defaults["ai"]["task_overrides"] == {}
+
+
+def test_deep_merge_preserves_new_defaults(tmp_path: object) -> None:
+    """export/ai 키 없는 기존 설정 로드 시 기본값이 보존되는지 확인."""
+    import pathlib
+
+    workspace = pathlib.Path(str(tmp_path)) / ".meeting_transcriber"
+    settings_file = workspace / "settings.json"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    # export/ai 키 없는 기존 설정 저장
+    old_settings = {"language": "ko", "whisper_model": "medium"}
+    settings_file.write_text(json.dumps(old_settings), encoding="utf-8")
+
+    with patch("meeting_transcriber.utils.config.SETTINGS_FILE", settings_file):
+        loaded = load_settings()
+
+    # 기존 값 유지
+    assert loaded["language"] == "ko"
+    # 새 기본값 보존
+    assert loaded["export"]["default_dir"] == ""
+    assert loaded["export"]["obsidian_vault"] == ""
+    assert loaded["ai"]["default_provider"] == "gemini"
+    assert loaded["ai"]["task_overrides"] == {}

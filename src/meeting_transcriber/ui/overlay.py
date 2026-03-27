@@ -4,8 +4,8 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath
+from PyQt6.QtCore import QPoint, Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QFont, QMouseEvent, QPainter, QPainterPath
 from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QWidget
 
 from meeting_transcriber.ui.theme import ThemeEngine
@@ -17,7 +17,7 @@ class OverlayWidget(QWidget):
     """Spotlight 스타일 플로팅 캡션 오버레이.
 
     화면 하단 중앙에 떠있는 둥근 바로, 실시간 전사 텍스트를 표시한다.
-    단축키(Cmd+Shift+C)로 나타남/사라짐.
+    단축키(Cmd+Shift+C)로 나타남/사라짐. 드래그로 위치 이동 가능.
     """
 
     visibility_changed = pyqtSignal(bool)
@@ -44,9 +44,17 @@ class OverlayWidget(QWidget):
         self._lines: deque[str] = deque(maxlen=self._max_lines)
         self._font_size = font_size
         self._bg_opacity = opacity
-        self._bg_color = QColor(28, 28, 30, int(opacity * 255))  # bg.primary
         self._border_radius = 20
         self._is_recording = False
+
+        # 테마 기반 색상 (기본값, apply_theme에서 갱신)
+        self._bg_base_color = QColor(28, 28, 30)
+        self._bg_color = QColor(28, 28, 30, int(opacity * 255))
+        self._recording_color = "#FF453A"
+        self._text_color = "#F5F5F7"
+
+        # 드래그 상태
+        self._drag_pos: QPoint | None = None
 
         self._setup_window()
         self._setup_ui()
@@ -58,11 +66,13 @@ class OverlayWidget(QWidget):
             Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.Tool
-            | Qt.WindowType.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFixedWidth(600)
-        self.setFixedHeight(80)
+        self.setMinimumHeight(48)
+        self.setMaximumHeight(120)
+        self._update_height()
 
     def _setup_ui(self) -> None:
         """내부 레이아웃."""
@@ -74,8 +84,8 @@ class OverlayWidget(QWidget):
         self._status_dot = QLabel()
         self._status_dot.setFixedSize(10, 10)
         self._status_dot.setStyleSheet(
-            "background-color: #FF453A; border-radius: 5px;"
-        )  # status.recording token
+            f"background-color: {self._recording_color}; border-radius: 5px;"
+        )
         self._status_dot.hide()
         layout.addWidget(self._status_dot)
 
@@ -87,8 +97,32 @@ class OverlayWidget(QWidget):
         font.setPixelSize(self._font_size)
         font.setWeight(QFont.Weight.Medium)
         self._label.setFont(font)
-        self._label.setStyleSheet("color: #F5F5F7; background: transparent;")  # text.primary
+        self._label.setStyleSheet(
+            f"color: {self._text_color}; background: transparent;"
+        )
         layout.addWidget(self._label, 1)
+
+    # -- 드래그 지원 --
+
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # noqa: N802
+        """드래그 시작 — 마우스 위치를 기록한다."""
+        if event and event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:  # noqa: N802
+        """드래그 중 — 오버레이를 마우스 위치로 이동한다."""
+        if event and self._drag_pos is not None:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # noqa: N802
+        """드래그 종료 — 위치를 저장한다."""
+        if event and event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = None
+            self.save_position()
+            self.position_changed.emit(self.pos().x(), self.pos().y())
+            event.accept()
 
     # -- 캡션 관리 --
 
@@ -118,8 +152,16 @@ class OverlayWidget(QWidget):
         return "\n".join(self._lines)
 
     def _refresh_label(self) -> None:
-        """라벨 텍스트를 업데이트한다."""
+        """라벨 텍스트를 업데이트하고 높이를 조정한다."""
         self._label.setText("\n".join(self._lines))
+        self._update_height()
+
+    def _update_height(self) -> None:
+        """현재 줄 수에 따라 높이를 조정한다."""
+        line_count = max(len(self._lines), 1)
+        new_h = max(48, 24 + line_count * (self._font_size + 6))
+        new_h = min(new_h, 120)
+        self.setFixedHeight(new_h)
 
     # -- 녹음 상태 표시 --
 
@@ -153,21 +195,71 @@ class OverlayWidget(QWidget):
         font = self._label.font()
         font.setPixelSize(size)
         self._label.setFont(font)
+        self._update_height()
 
     def set_opacity(self, opacity: float) -> None:
         """배경 투명도를 변경한다."""
         self._bg_opacity = min(max(opacity, 0.0), 1.0)
-        self._bg_color.setAlpha(int(self._bg_opacity * 255))
+        self._bg_color = QColor(
+            self._bg_base_color.red(),
+            self._bg_base_color.green(),
+            self._bg_base_color.blue(),
+            int(self._bg_opacity * 255),
+        )
         self.update()
 
     def apply_theme(self, theme: ThemeEngine) -> None:
         """테마를 적용한다."""
         t = theme.tokens
+        colors = t.get("colors", {})
+
+        # 배경색
+        overlay_bg = colors.get("background", {}).get("overlay")
+        if overlay_bg and isinstance(overlay_bg, str) and overlay_bg.startswith("rgba"):
+            # rgba(r,g,b,a) 파싱은 복잡하므로 기본값 유지
+            pass
+        else:
+            bg_primary = colors.get("background", {}).get("primary", "#1C1C1E")
+            self._bg_base_color = QColor(bg_primary)
+
+        # 텍스트 색상
+        self._text_color = colors.get("text", {}).get("overlay", "#FFFFFF")
+        self._label.setStyleSheet(
+            f"color: {self._text_color}; background: transparent;"
+        )
+
+        # 녹음 상태 색상
+        self._recording_color = colors.get("status", {}).get("recording", "#FF453A")
+        self._status_dot.setStyleSheet(
+            f"background-color: {self._recording_color}; border-radius: 5px;"
+        )
+
+        # 배경 투명도 갱신
+        self._bg_color = QColor(
+            self._bg_base_color.red(),
+            self._bg_base_color.green(),
+            self._bg_base_color.blue(),
+            int(self._bg_opacity * 255),
+        )
+
+        # 폰트 크기
         font_size = t.get("typography", {}).get("fontSize", {}).get("overlay", self._font_size)
         self.set_font_size(font_size)
-        text_color = t.get("colors", {}).get("text", {}).get("overlay", "#FFFFFF")
-        self._label.setStyleSheet(f"color: {text_color}; background: transparent;")
         self.update()
+
+    def apply_settings(self, settings: dict[str, Any]) -> None:
+        """설정 다이얼로그에서 변경된 값을 런타임에 반영한다.
+
+        Args:
+            settings: 전체 설정 딕셔너리
+        """
+        overlay = settings.get("overlay", {})
+        if "lines" in overlay:
+            self.set_max_lines(overlay["lines"])
+        if "font_size" in overlay:
+            self.set_font_size(overlay["font_size"])
+        if "opacity" in overlay:
+            self.set_opacity(overlay["opacity"])
 
     # -- 위치 관리 (화면 하단 중앙) --
 

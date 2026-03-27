@@ -1,7 +1,8 @@
-"""transcript 내보내기 — Markdown, TXT 포맷."""
+"""transcript 내보내기 — Markdown, TXT, SRT, VTT, Obsidian 포맷."""
 from __future__ import annotations
 
 import pathlib
+import re
 from typing import Any
 
 
@@ -198,3 +199,222 @@ def save_export(content: str, path: pathlib.Path) -> pathlib.Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path
+
+
+# ============================================================
+# SRT / VTT subtitle export
+# ============================================================
+
+
+def _format_srt_timestamp(seconds: float) -> str:
+    """초를 SRT 타임스탬프 형식(HH:MM:SS,mmm)으로 변환한다.
+
+    Args:
+        seconds: 시간 (초)
+
+    Returns:
+        "HH:MM:SS,mmm" 형식 문자열 (쉼표 구분)
+    """
+    total_ms = int(seconds * 1000)
+    h = total_ms // 3_600_000
+    m = (total_ms % 3_600_000) // 60_000
+    s = (total_ms % 60_000) // 1000
+    ms = total_ms % 1000
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def _format_vtt_timestamp(seconds: float) -> str:
+    """초를 VTT 타임스탬프 형식(HH:MM:SS.mmm)으로 변환한다.
+
+    Args:
+        seconds: 시간 (초)
+
+    Returns:
+        "HH:MM:SS.mmm" 형식 문자열 (마침표 구분)
+    """
+    total_ms = int(seconds * 1000)
+    h = total_ms // 3_600_000
+    m = (total_ms % 3_600_000) // 60_000
+    s = (total_ms % 60_000) // 1000
+    ms = total_ms % 1000
+    return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
+
+
+def export_to_srt(
+    transcript: dict[str, Any],
+    *,
+    include_speaker: bool = True,
+) -> str:
+    """transcript를 SRT 자막 형식으로 내보낸다.
+
+    Args:
+        transcript: transcript.json 스키마를 따르는 딕셔너리
+        include_speaker: 화자 라벨 포함 여부
+
+    Returns:
+        SRT 포맷 문자열 (빈 세그먼트일 경우 빈 문자열)
+    """
+    segments = transcript.get("segments", [])
+    if not segments:
+        return ""
+
+    entries: list[str] = []
+    for i, seg in enumerate(segments, start=1):
+        text = seg.get("text", "")
+        if not text:
+            continue
+
+        start = _format_srt_timestamp(seg.get("start", 0.0))
+        end = _format_srt_timestamp(seg.get("end", 0.0))
+
+        speaker = seg.get("speaker", "")
+        if include_speaker and speaker:
+            text = f"{speaker}: {text}"
+
+        entries.append(f"{i}\n{start} --> {end}\n{text}\n")
+
+    return "\n".join(entries)
+
+
+def export_to_vtt(
+    transcript: dict[str, Any],
+    *,
+    include_speaker: bool = True,
+) -> str:
+    """transcript를 WebVTT 자막 형식으로 내보낸다.
+
+    Args:
+        transcript: transcript.json 스키마를 따르는 딕셔너리
+        include_speaker: 화자 라벨 포함 여부
+
+    Returns:
+        WebVTT 포맷 문자열 (WEBVTT 헤더 포함)
+    """
+    segments = transcript.get("segments", [])
+
+    entries: list[str] = []
+    for i, seg in enumerate(segments, start=1):
+        text = seg.get("text", "")
+        if not text:
+            continue
+
+        start = _format_vtt_timestamp(seg.get("start", 0.0))
+        end = _format_vtt_timestamp(seg.get("end", 0.0))
+
+        speaker = seg.get("speaker", "")
+        if include_speaker and speaker:
+            text = f"{speaker}: {text}"
+
+        entries.append(f"{i}\n{start} --> {end}\n{text}\n")
+
+    return "WEBVTT\n\n" + "\n".join(entries)
+
+
+# ============================================================
+# Obsidian Markdown export
+# ============================================================
+
+
+def export_to_obsidian(transcript: dict[str, Any]) -> str:
+    """transcript를 Obsidian 호환 Markdown으로 내보낸다.
+
+    YAML frontmatter에 title, date, duration, languages, tags, source를 포함하고,
+    본문에 AI 결과와 타임스탬프 세그먼트를 포함한다.
+
+    Args:
+        transcript: transcript.json 스키마를 따르는 딕셔너리
+
+    Returns:
+        Obsidian 호환 Markdown 문자열
+    """
+    metadata = transcript.get("metadata", {})
+    segments = transcript.get("segments", [])
+
+    parts: list[str] = []
+
+    # YAML frontmatter
+    title = metadata.get("title", "Untitled")
+    created_at = metadata.get("created_at", "")
+    date = created_at[:10] if created_at else ""
+    duration = int(metadata.get("duration_seconds", 0))
+    languages = metadata.get("languages", [])
+    tags = metadata.get("tags", [])
+    source = metadata.get("source", "")
+
+    parts.append("---")
+    parts.append(f'title: "{title}"')
+    parts.append(f"date: {date}")
+    parts.append(f"duration: {duration}")
+    parts.append(f"languages: [{', '.join(languages)}]")
+    parts.append(f"tags: [{', '.join(tags)}]")
+    parts.append(f"source: {source}")
+    parts.append("---")
+    parts.append("")
+
+    # 제목
+    parts.append(f"# {title}")
+    parts.append("")
+
+    # 메타데이터 요약
+    if date:
+        parts.append(f"- **Date**: {date}")
+    if duration:
+        parts.append(f"- **Duration**: {_format_duration(float(duration))}")
+    if languages:
+        parts.append(f"- **Languages**: {', '.join(languages)}")
+    parts.append("")
+
+    # AI 결과
+    summary = metadata.get("summary", "")
+    if summary:
+        parts.append("## Summary")
+        parts.append("")
+        parts.append(summary)
+        parts.append("")
+
+    if tags:
+        parts.append(f"**Keywords**: {', '.join(tags)}")
+        parts.append("")
+
+    parts.append("---")
+    parts.append("")
+
+    # 세그먼트
+    for seg in segments:
+        text = seg.get("text", "")
+        if not text:
+            continue
+        start = seg.get("start", 0.0)
+        parts.append(f"{_format_timestamp(start)} {text}")
+
+    parts.append("")
+    return "\n".join(parts)
+
+
+def obsidian_filename(transcript: dict[str, Any]) -> str:
+    """Obsidian 호환 파일명을 생성한다.
+
+    {YYYY-MM-DD}_{sanitized_title}.md 형식으로 반환한다.
+    파일시스템 비안전 문자(/ \\ | # ^ [ ])를 제거한다.
+
+    Args:
+        transcript: transcript.json 스키마를 따르는 딕셔너리
+
+    Returns:
+        안전한 파일명 문자열
+    """
+    metadata = transcript.get("metadata", {})
+    created_at = metadata.get("created_at", "")
+    date = created_at[:10] if created_at else "unknown"
+    title = metadata.get("title", "Untitled")
+
+    # 비안전 문자 제거
+    safe_title = re.sub(r'[/\\|#\^{}\[\]]', "", title)
+    # 공백을 언더스코어로 변환
+    safe_title = safe_title.replace(" ", "_")
+    # 연속 언더스코어 정리
+    safe_title = re.sub(r"_+", "_", safe_title)
+    # 길이 제한
+    safe_title = safe_title[:100]
+
+    return f"{date}_{safe_title}.md"

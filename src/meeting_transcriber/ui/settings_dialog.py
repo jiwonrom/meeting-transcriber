@@ -1,14 +1,18 @@
-"""설정 다이얼로그 — 언어, 모델, 오버레이, 오디오, API 키."""
+"""설정 다이얼로그 — 언어, 모델, 오버레이, 오디오, API 키, 내보내기."""
+
 from __future__ import annotations
 
+import pathlib
 from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -36,9 +40,11 @@ class SettingsDialog(QDialog):
     General, Overlay, Audio, API Keys 4개 탭으로 구성된다.
     """
 
+    settings_changed = pyqtSignal(dict)
+
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Settings")
+        self.setWindowTitle("Preferences")
         self.setMinimumSize(450, 400)
 
         self._settings = load_settings()
@@ -86,6 +92,30 @@ class SettingsDialog(QDialog):
             self._model_combo.addItem(f"{m['name']} [{status}]", m["name"])
         form.addRow("Whisper Model:", self._model_combo)
 
+        # 내보내기 디렉토리
+        export_dir_layout = QHBoxLayout()
+        self._export_dir_input = QLineEdit()
+        self._export_dir_input.setPlaceholderText("Choose directory...")
+        self._export_dir_input.setReadOnly(True)
+        export_dir_layout.addWidget(self._export_dir_input)
+        export_dir_browse = QPushButton("Browse...")
+        export_dir_browse.setFixedWidth(80)
+        export_dir_browse.clicked.connect(self._browse_export_dir)
+        export_dir_layout.addWidget(export_dir_browse)
+        form.addRow("Export Directory:", export_dir_layout)
+
+        # Obsidian 볼트 경로
+        obsidian_layout = QHBoxLayout()
+        self._obsidian_vault_input = QLineEdit()
+        self._obsidian_vault_input.setPlaceholderText("Choose Obsidian vault...")
+        self._obsidian_vault_input.setReadOnly(True)
+        obsidian_layout.addWidget(self._obsidian_vault_input)
+        obsidian_browse = QPushButton("Browse...")
+        obsidian_browse.setFixedWidth(80)
+        obsidian_browse.clicked.connect(self._browse_obsidian_vault)
+        obsidian_layout.addWidget(obsidian_browse)
+        form.addRow("Obsidian Vault:", obsidian_layout)
+
         return tab
 
     def _create_overlay_tab(self) -> QWidget:
@@ -107,9 +137,7 @@ class SettingsDialog(QDialog):
         self._opacity_slider.setRange(10, 100)
         self._opacity_slider.setValue(85)
         self._opacity_label = QLabel("85%")
-        self._opacity_slider.valueChanged.connect(
-            lambda v: self._opacity_label.setText(f"{v}%")
-        )
+        self._opacity_slider.valueChanged.connect(lambda v: self._opacity_label.setText(f"{v}%"))
         form.addRow("Opacity:", self._opacity_slider)
         form.addRow("", self._opacity_label)
 
@@ -151,9 +179,26 @@ class SettingsDialog(QDialog):
         self._gemini_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         form.addRow("Gemini API Key:", self._gemini_key_input)
 
-        save_key_btn = QPushButton("Save Key")
-        save_key_btn.clicked.connect(self._save_api_key)
+        self._openai_key_input = QLineEdit()
+        self._openai_key_input.setPlaceholderText("Enter OpenAI API key")
+        self._openai_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow("OpenAI API Key:", self._openai_key_input)
+
+        self._anthropic_key_input = QLineEdit()
+        self._anthropic_key_input.setPlaceholderText("Enter Anthropic API key")
+        self._anthropic_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow("Anthropic API Key:", self._anthropic_key_input)
+
+        save_key_btn = QPushButton("Save Keys")
+        save_key_btn.clicked.connect(self._save_api_keys)
         form.addRow("", save_key_btn)
+
+        # 기본 AI 프로바이더 선택
+        self._default_provider_combo = QComboBox()
+        self._default_provider_combo.addItem("Gemini", "gemini")
+        self._default_provider_combo.addItem("OpenAI", "openai")
+        self._default_provider_combo.addItem("Anthropic", "anthropic")
+        form.addRow("Default AI Provider:", self._default_provider_combo)
 
         return tab
 
@@ -194,10 +239,30 @@ class SettingsDialog(QDialog):
         if idx >= 0:
             self._post_recording_combo.setCurrentIndex(idx)
 
+        # Export
+        export = s.get("export", {})
+        export_dir = export.get("default_dir", "")
+        if export_dir:
+            self._export_dir_input.setText(export_dir)
+        obsidian_vault = export.get("obsidian_vault", "")
+        if obsidian_vault:
+            self._obsidian_vault_input.setText(obsidian_vault)
+
+        # AI 기본 프로바이더
+        ai = s.get("ai", {})
+        default_provider = ai.get("default_provider", "gemini")
+        idx = self._default_provider_combo.findData(default_provider)
+        if idx >= 0:
+            self._default_provider_combo.setCurrentIndex(idx)
+
         # API Key (Keychain에서 존재 여부만 표시)
         existing = get_api_key("gemini")
         if existing:
             self._gemini_key_input.setPlaceholderText("••••••• (saved)")
+        if get_api_key("openai"):
+            self._openai_key_input.setPlaceholderText("••••••• (saved)")
+        if get_api_key("anthropic"):
+            self._anthropic_key_input.setPlaceholderText("••••••• (saved)")
 
     def _save_and_close(self) -> None:
         """설정을 저장하고 다이얼로그를 닫는다."""
@@ -215,16 +280,49 @@ class SettingsDialog(QDialog):
         s["audio"]["device"] = self._device_combo.currentData()
         s["audio"]["post_recording"] = self._post_recording_combo.currentData()
 
+        s.setdefault("export", {})
+        s["export"]["default_dir"] = self._export_dir_input.text()
+        s["export"]["obsidian_vault"] = self._obsidian_vault_input.text()
+
+        s.setdefault("ai", {})
+        s["ai"]["default_provider"] = self._default_provider_combo.currentData()
+
         save_settings(s)
+        self.settings_changed.emit(s)
         self.accept()
 
-    def _save_api_key(self) -> None:
-        """Gemini API 키를 Keychain에 저장한다."""
-        key = self._gemini_key_input.text().strip()
-        if key:
-            store_api_key("gemini", key)
-            self._gemini_key_input.clear()
-            self._gemini_key_input.setPlaceholderText("••••••• (saved)")
+    def _save_api_keys(self) -> None:
+        """모든 AI 프로바이더의 API 키를 Keychain에 저장한다."""
+        for service, input_field in [
+            ("gemini", self._gemini_key_input),
+            ("openai", self._openai_key_input),
+            ("anthropic", self._anthropic_key_input),
+        ]:
+            key = input_field.text().strip()
+            if key:
+                store_api_key(service, key)
+                input_field.clear()
+                input_field.setPlaceholderText("••••••• (saved)")
+
+    def _browse_export_dir(self) -> None:
+        """내보내기 디렉토리를 선택한다."""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Export Directory",
+            str(pathlib.Path.home()),
+        )
+        if directory:
+            self._export_dir_input.setText(directory)
+
+    def _browse_obsidian_vault(self) -> None:
+        """Obsidian 볼트 디렉토리를 선택한다."""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Obsidian Vault",
+            str(pathlib.Path.home()),
+        )
+        if directory:
+            self._obsidian_vault_input.setText(directory)
 
     def get_settings(self) -> dict[str, Any]:
         """현재 UI의 설정값을 딕셔너리로 반환한다."""

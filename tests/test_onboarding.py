@@ -4,6 +4,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from meeting_transcriber.ui.onboarding import OnboardingWizard
+from meeting_transcriber.utils.constants import APP_NAME
 
 
 def test_onboarding_creation(qtbot: object) -> None:
@@ -11,7 +12,7 @@ def test_onboarding_creation(qtbot: object) -> None:
     wizard = OnboardingWizard()
     qtbot.addWidget(wizard)  # type: ignore[union-attr]
 
-    assert wizard.windowTitle() == "Meeting Transcriber — Setup"
+    assert wizard.windowTitle() == f"{APP_NAME} — Setup"
     assert wizard.current_page == 0
 
 
