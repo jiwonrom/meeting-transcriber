@@ -1,7 +1,9 @@
 """AI provider 모듈 단위 테스트."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from meeting_transcriber.ai.provider_base import AIProvider
 from meeting_transcriber.ai.tasks import AIResult, AITaskWorker
@@ -166,10 +168,159 @@ def test_ai_task_worker_progress_signals(qtbot: object) -> None:
 
 def test_gemini_provider_requires_api_key() -> None:
     """API 키 없으면 ValueError를 발생시키는지 확인."""
-    import pytest
-
     with patch("meeting_transcriber.ai.gemini_provider.get_api_key", return_value=None):
         from meeting_transcriber.ai.gemini_provider import GeminiProvider
 
         with pytest.raises(ValueError, match="API key not found"):
             GeminiProvider()
+
+
+# -- OpenAIProvider 테스트 (mock) --
+
+
+def _make_openai_mock_response(content: str) -> MagicMock:
+    """OpenAI chat completion mock 응답을 생성한다."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = content
+    return mock_response
+
+
+def test_openai_provider_implements_abc() -> None:
+    """OpenAIProvider가 AIProvider ABC를 구현하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_cls.return_value = MagicMock()
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        assert isinstance(provider, AIProvider)
+
+
+def test_openai_provider_requires_api_key() -> None:
+    """API 키 없으면 ValueError를 발생시키는지 확인."""
+    with patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value=None):
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        with pytest.raises(ValueError, match="API key not found"):
+            OpenAIProvider()
+
+
+def test_openai_provider_summarize() -> None:
+    """OpenAI summarize가 동작하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            "- Summary point 1\n- Summary point 2"
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        result = provider.summarize("Test transcript text")
+        assert "Summary point 1" in result
+        mock_client.chat.completions.create.assert_called_once()
+
+
+def test_openai_provider_proofread() -> None:
+    """OpenAI proofread가 동작하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            "The quick brown fox"
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        result = provider.proofread("teh quick brown fox")
+        assert result == "The quick brown fox"
+
+
+def test_openai_provider_extract_keywords() -> None:
+    """OpenAI extract_keywords가 리스트를 반환하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            "AI, transcription, meeting"
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider()
+        keywords = provider.extract_keywords("AI meeting transcription text")
+        assert isinstance(keywords, list)
+        assert len(keywords) == 3
+        assert "AI" in keywords
+
+
+# -- AnthropicProvider 테스트 (mock) --
+
+
+def _make_anthropic_mock_response(text: str) -> MagicMock:
+    """Anthropic messages mock 응답을 생성한다."""
+    mock_response = MagicMock()
+    mock_content = MagicMock()
+    mock_content.text = text
+    mock_response.content = [mock_content]
+    return mock_response
+
+
+def test_anthropic_provider_implements_abc() -> None:
+    """AnthropicProvider가 AIProvider ABC를 구현하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
+        patch(
+            "meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"
+        ),
+    ):
+        mock_cls.return_value = MagicMock()
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+
+        provider = AnthropicProvider()
+        assert isinstance(provider, AIProvider)
+
+
+def test_anthropic_provider_requires_api_key() -> None:
+    """API 키 없으면 ValueError를 발생시키는지 확인."""
+    with patch("meeting_transcriber.ai.anthropic_provider.get_api_key", return_value=None):
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+
+        with pytest.raises(ValueError, match="API key not found"):
+            AnthropicProvider()
+
+
+def test_anthropic_provider_summarize() -> None:
+    """Anthropic summarize가 동작하는지 확인."""
+    with (
+        patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
+        patch(
+            "meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"
+        ),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = _make_anthropic_mock_response(
+            "- Summary from Claude"
+        )
+
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+
+        provider = AnthropicProvider()
+        result = provider.summarize("Test transcript text")
+        assert "Summary from Claude" in result
+        mock_client.messages.create.assert_called_once()
