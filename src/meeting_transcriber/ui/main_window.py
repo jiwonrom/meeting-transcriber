@@ -21,7 +21,6 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
-    QProgressBar,
     QPushButton,
     QSplitter,
     QStatusBar,
@@ -32,6 +31,10 @@ from PyQt6.QtWidgets import (
 )
 
 from meeting_transcriber.core.audio_capture import AudioCaptureWorker, encode_wav_chunk
+from meeting_transcriber.core.system_audio import (
+    is_blackhole_installed,
+    resolve_device_by_uid,
+)
 from meeting_transcriber.core.transcriber import FileTranscriber, TranscriptionResult
 from meeting_transcriber.storage.transcript_store import (
     create_transcript,
@@ -39,8 +42,11 @@ from meeting_transcriber.storage.transcript_store import (
     save_transcript,
 )
 from meeting_transcriber.storage.workspace import WorkspaceManager
+from meeting_transcriber.ui.blackhole_wizard import BlackHoleSetupWizard
 from meeting_transcriber.ui.theme import ThemeEngine
-from meeting_transcriber.utils.config import load_settings
+from meeting_transcriber.ui.widgets.dual_level_meter import DualLevelMeter
+from meeting_transcriber.ui.widgets.toggle_switch import SystemAudioToggle
+from meeting_transcriber.utils.config import load_settings, save_settings
 from meeting_transcriber.utils.constants import APP_NAME
 
 logger = logging.getLogger(__name__)
@@ -523,6 +529,17 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._refresh_recording_list()
 
+        # System audio state init
+        self._recording_with_system_audio = False
+        blackhole_ok = is_blackhole_installed()
+        self._system_audio_toggle.set_blackhole_available(blackhole_ok)
+        settings = load_settings()
+        sys_audio = settings.get("audio", {}).get("system_audio", {})
+        if blackhole_ok and sys_audio.get("enabled"):
+            self._system_audio_toggle.setChecked(True)
+            self._level_meter.set_dual_mode(True)
+            self._control_bar.setFixedHeight(80)
+
     def _setup_ui(self) -> None:
         """Voice Memos 스타일 UI를 구성한다."""
         central = QWidget()
@@ -578,14 +595,9 @@ class MainWindow(QMainWindow):
         bar_layout.setContentsMargins(0, 6, 0, 6)
         bar_layout.setSpacing(4)
 
-        # 레벨 바
-        self._level_bar = QProgressBar()
-        self._level_bar.setRange(0, 100)
-        self._level_bar.setValue(0)
-        self._level_bar.setTextVisible(False)
-        self._level_bar.setFixedHeight(4)
-        # 레벨 바 스타일은 ThemeEngine QSS에서 적용
-        bar_layout.addWidget(self._level_bar)
+        # 레벨 미터 (마이크 + 시스템 오디오 듀얼)
+        self._level_meter = DualLevelMeter()
+        bar_layout.addWidget(self._level_meter)
 
         # 버튼 + 타이머
         btn_row = QHBoxLayout()
@@ -599,6 +611,23 @@ class MainWindow(QMainWindow):
         )
         self._duration_label.setObjectName("caption")
         btn_row.addWidget(self._duration_label)
+
+        # System audio toggle
+        self._system_audio_toggle = SystemAudioToggle()
+        toggle_container = QWidget()
+        toggle_layout = QVBoxLayout(toggle_container)
+        toggle_layout.setContentsMargins(0, 0, 0, 0)
+        toggle_layout.setSpacing(2)
+        toggle_layout.addWidget(
+            self._system_audio_toggle, alignment=Qt.AlignmentFlag.AlignCenter
+        )
+        self._system_audio_label = QLabel("System Audio")
+        self._system_audio_label.setObjectName("caption")
+        self._system_audio_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._system_audio_label.setStyleSheet("font-size: 11px;")
+        toggle_layout.addWidget(self._system_audio_label)
+        toggle_container.setFixedWidth(60)
+        btn_row.addWidget(toggle_container)
 
         self._record_btn = RecordButton()
         self._record_btn.clicked.connect(self._on_record_btn_clicked)
@@ -640,7 +669,34 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         """내부 signal을 연결한다."""
-        pass  # 외부 연결은 app.py에서 수행
+        self._system_audio_toggle.toggled.connect(self._on_system_audio_toggled)
+        self._system_audio_toggle.setup_requested.connect(
+            self._on_system_audio_setup_requested
+        )
+
+    # -- 시스템 오디오 --
+
+    def _on_system_audio_toggled(self, enabled: bool) -> None:
+        """시스템 오디오 토글 변경."""
+        settings = load_settings()
+        settings["audio"]["system_audio"]["enabled"] = enabled
+        save_settings(settings)
+        self._level_meter.set_dual_mode(enabled)
+        if enabled:
+            self._control_bar.setFixedHeight(80)
+        else:
+            self._control_bar.setFixedHeight(72)
+
+    def _on_system_audio_setup_requested(self) -> None:
+        """BlackHole 설치 위저드를 연다."""
+        wizard = BlackHoleSetupWizard(self)
+        wizard.setup_completed.connect(self._on_blackhole_setup_completed)
+        wizard.exec()
+
+    def _on_blackhole_setup_completed(self) -> None:
+        """BlackHole 설치 완료 -- 토글 활성화."""
+        self._system_audio_toggle.set_blackhole_available(True)
+        self._system_audio_toggle.setChecked(True)
 
     # -- 녹음 리스트 --
 
@@ -751,7 +807,24 @@ class MainWindow(QMainWindow):
             return
 
         settings = load_settings()
+        sys_audio = settings.get("audio", {}).get("system_audio", {})
         device = settings.get("audio", {}).get("device")
+        self._recording_with_system_audio = False
+
+        # System audio: use Aggregate Device (per D-05, D-06)
+        if sys_audio.get("enabled") and sys_audio.get("aggregate_device_uid"):
+            aggregate_idx = resolve_device_by_uid(sys_audio["aggregate_device_uid"])
+            if aggregate_idx is not None:
+                device = aggregate_idx
+                self._recording_with_system_audio = True
+                self._status_bar.showMessage("Recording: Mic + System Audio")
+            else:
+                # Aggregate Device not found -- fallback to mic (per D-11, D-12)
+                self._status_bar.showMessage(
+                    "System audio disconnected -- continuing with microphone only"
+                )
+        else:
+            self._status_bar.showMessage("Recording: Microphone")
 
         self._realtime_segments = []
         self._chunk_count = 0
@@ -775,6 +848,7 @@ class MainWindow(QMainWindow):
         """녹음 시작됨."""
         self._is_recording = True
         self._record_btn.set_recording(True)
+        self._system_audio_toggle.set_recording(True)
         self._record_seconds = 0
         self._duration_label.setText("00:00")
         self._status_label.setText("Recording...")
@@ -787,8 +861,10 @@ class MainWindow(QMainWindow):
         """녹음 정지됨 — 전사를 시작한다."""
         self._is_recording = False
         self._record_btn.set_recording(False)
+        self._system_audio_toggle.set_recording(False)
+        self._recording_with_system_audio = False
         self._record_timer.stop()
-        self._level_bar.setValue(0)
+        self._level_meter.reset()
         self._status_label.setText("Processing...")
         self._set_status_state("processing")
         self._status_bar.showMessage("Processing recording...")
@@ -809,18 +885,48 @@ class MainWindow(QMainWindow):
         self._process_recording(recording)
 
     def _on_capture_error(self, message: str) -> None:
-        """캡처 에러."""
+        """오디오 캡처 오류 처리 -- 시스템 오디오 실패 시 마이크 전용으로 재시작."""
+        if self._recording_with_system_audio and self._is_recording:
+            # Mid-recording system audio failure (per D-11):
+            # Restart with mic-only while keeping recording state active.
+            logger.warning("System audio stream failed: %s", message)
+            self._recording_with_system_audio = False
+            self._level_meter.set_dual_mode(False)
+            self._control_bar.setFixedHeight(72)
+            self._status_bar.showMessage(
+                "System audio lost -- continuing with microphone only"
+            )
+
+            # Restart AudioCaptureWorker with mic-only device
+            settings = load_settings()
+            mic_device = settings.get("audio", {}).get("device")
+            self._audio_worker = AudioCaptureWorker(device=mic_device)
+            self._audio_worker.capture_started.connect(self._on_capture_started)
+            self._audio_worker.capture_stopped.connect(self._on_capture_stopped)
+            self._audio_worker.error_occurred.connect(self._on_capture_error)
+            self._audio_worker.level_changed.connect(self._on_level_changed)
+            self._audio_worker.chunk_ready.connect(self._on_chunk_ready)
+            self._audio_worker.start()
+            return
+
+        # Non-system-audio error or mic-only error: stop recording
         self._is_recording = False
         self._record_btn.set_recording(False)
+        self._system_audio_toggle.set_recording(False)
+        self._recording_with_system_audio = False
         self._record_timer.stop()
-        self._level_bar.setValue(0)
+        self._level_meter.reset()
         self._status_label.setText("Error")
         self._set_status_state("error")
         self._status_bar.showMessage(f"Error: {message}")
 
     def _on_level_changed(self, level: float) -> None:
         """오디오 레벨 업데이트."""
-        self._level_bar.setValue(int(level * 100))
+        self._level_meter.set_mic_level(level)
+        # Aggregate Device merges both sources into one stream,
+        # so mic_level reflects the combined level
+        if self._system_audio_toggle.isChecked():
+            self._level_meter.set_system_level(level)
 
     def _on_chunk_ready(self, chunk: np.ndarray) -> None:
         """2초 오디오 청크 도착 — 실시간 전사를 시작한다.

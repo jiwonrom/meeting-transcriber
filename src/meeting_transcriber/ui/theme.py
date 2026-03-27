@@ -1,4 +1,5 @@
 """ThemeEngine — 디자인 토큰 JSON에서 PyQt6 QSS를 생성한다."""
+
 from __future__ import annotations
 
 import json
@@ -86,7 +87,6 @@ class ThemeEngine:
             f"    font-family: {font};\n"
             f"    font-size: {fs['body']}px;\n"
             f"}}\n\n"
-
             # 사이드바 (같은 배경 + 미묘한 보더)
             f"QListWidget {{\n"
             f"    background-color: {bg['sidebar']};\n"
@@ -103,7 +103,6 @@ class ThemeEngine:
             f"    background-color: {bg['elevated']};\n"
             f"    border-left: 3px solid {st['recording']};\n"
             f"}}\n\n"
-
             # 탭 위젯
             f"QTabWidget::pane {{\n"
             f"    border: 1px solid {bd['default']};\n"
@@ -121,7 +120,6 @@ class ThemeEngine:
             f"    color: {tx['primary']};\n"
             f"    border-bottom: 2px solid {st['recording']};\n"
             f"}}\n\n"
-
             # 텍스트 에디터
             f"QTextEdit {{\n"
             f"    background-color: {bg['primary']};\n"
@@ -130,7 +128,6 @@ class ThemeEngine:
             f"    font-size: {fs['body']}px;\n"
             f"    selection-background-color: {bd['emphasis']};\n"
             f"}}\n\n"
-
             # 버튼
             f"QPushButton {{\n"
             f"    background-color: {bg['control']};\n"
@@ -146,7 +143,6 @@ class ThemeEngine:
             f"QPushButton:pressed {{\n"
             f"    background-color: {bg['elevated']};\n"
             f"}}\n\n"
-
             # 스크롤바
             f"QScrollBar:vertical {{\n"
             f"    background: transparent;\n"
@@ -160,14 +156,12 @@ class ThemeEngine:
             f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{\n"
             f"    height: 0px;\n"
             f"}}\n\n"
-
             # 상태바
             f"QStatusBar {{\n"
             f"    color: {tx['tertiary']};\n"
             f"    font-size: {fs['caption']}px;\n"
             f"    border-top: 1px solid {bd['default']};\n"
             f"}}\n\n"
-
             # 라벨
             f"QLabel {{\n"
             f"    color: {tx['primary']};\n"
@@ -181,22 +175,20 @@ class ThemeEngine:
             f"    font-size: {fs['body']}px;\n"
             f"    padding: {sp['sm']}px;\n"
             f"}}\n\n"
-
             # 상태 라벨 (동적 property 기반)
-            f"QLabel[state=\"recording\"] {{\n"
+            f'QLabel[state="recording"] {{\n'
             f"    color: {st['recording']};\n"
             f"    font-weight: bold;\n"
             f"}}\n"
-            f"QLabel[state=\"processing\"] {{\n"
+            f'QLabel[state="processing"] {{\n'
             f"    color: {st['processing']};\n"
             f"}}\n"
-            f"QLabel[state=\"error\"] {{\n"
+            f'QLabel[state="error"] {{\n'
             f"    color: {st['error']};\n"
             f"}}\n"
-            f"QLabel[state=\"idle\"] {{\n"
+            f'QLabel[state="idle"] {{\n'
             f"    color: {tx['secondary']};\n"
             f"}}\n\n"
-
             # 프로그레스바 (레벨 미터)
             f"QProgressBar {{\n"
             f"    background: {bg['control']};\n"
@@ -206,6 +198,16 @@ class ThemeEngine:
             f"}}\n"
             f"QProgressBar::chunk {{\n"
             f"    background: {st['recording']};\n"
+            f"    border-radius: 2px;\n"
+            f"}}\n"
+            # System audio level bar (orange chunks)
+            f"QProgressBar#system_level_bar {{\n"
+            f"    background-color: {bg['control']};\n"
+            f"    border: none;\n"
+            f"    border-radius: 2px;\n"
+            f"}}\n"
+            f"QProgressBar#system_level_bar::chunk {{\n"
+            f"    background-color: {st['processing']};\n"
             f"    border-radius: 2px;\n"
             f"}}\n"
         )
