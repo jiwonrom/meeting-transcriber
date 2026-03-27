@@ -127,7 +127,7 @@ Speaker label prefix uses `text.secondary` (#98989D / #6E6E73) color and semibol
 - Default (no diarization data, audio file exists): "Identify Speakers" enabled
 - Default (diarization data exists, audio file exists): "Re-identify Speakers" label, enabled
 - Disabled (no audio file): "Identify Speakers" grayed, tooltip explains
-- Running: "Identifying..." label, disabled, non-interactive
+- Running: "Identifying speakers..." label, disabled, non-interactive
 - Complete: reverts to "Re-identify Speakers" label
 
 **Visibility per D-02:** Visible on all transcripts. Disabled with tooltip when audio file is missing.
@@ -178,8 +178,8 @@ Speaker label prefix uses `text.secondary` (#98989D / #6E6E73) color and semibol
 - HuggingFace token row:
   - Label (14px): "HuggingFace Token"
   - QLineEdit (password mode, echoMode=Password), 280px wide
-  - "Save" QPushButton (caption size, 60px wide)
-  - Status: "Saved" (success color) or "Required for speaker identification" (text.tertiary)
+  - "Save Token" QPushButton (caption size, 80px wide)
+  - Status: "Token saved" (success color) or "Required for speaker identification" (text.tertiary)
 - Help text below (11px, text.tertiary): "Required for downloading the speaker identification model. Get a token at huggingface.co/settings/tokens"
 - Link button: "Get Token" -- opens https://huggingface.co/settings/tokens in browser
 
@@ -208,10 +208,12 @@ Speaker label prefix uses `text.secondary` (#98989D / #6E6E73) color and semibol
 |---------|------|
 | Primary CTA | "Identify Speakers" |
 | Re-run CTA | "Re-identify Speakers" |
-| CTA running state | "Identifying..." |
+| CTA running state | "Identifying speakers..." |
 | Speaker list prefix | "Speakers:" |
 | Rename dialog title | "Rename Speaker" |
 | Rename dialog prompt | "Enter name for {current_name}:" |
+| Settings save CTA | "Save Token" |
+| Settings token saved | "Token saved" |
 | Empty state (no diarization) | No visual indicator -- transcript displays without speaker labels (per D-07). Button "Identify Speakers" is the call to action. |
 | Empty state (no audio file) | Button tooltip: "Audio file not found -- cannot identify speakers" |
 | Status: downloading model | "Downloading speaker identification model..." |
@@ -224,7 +226,6 @@ Speaker label prefix uses `text.secondary` (#98989D / #6E6E73) color and semibol
 | Settings section heading | "Speaker Identification" |
 | Settings token label | "HuggingFace Token" |
 | Settings token help | "Required for downloading the speaker identification model. Get a token at huggingface.co/settings/tokens" |
-| Settings token saved | "Saved" |
 | Settings token required | "Required for speaker identification" |
 | Settings token invalid | "Token must start with 'hf_'" |
 | Settings get token link | "Get Token" |
@@ -236,9 +237,9 @@ Speaker label prefix uses `text.secondary` (#98989D / #6E6E73) color and semibol
 
 | Component | Idle | Hover | Active/Pressed | Disabled | Processing |
 |-----------|------|-------|----------------|----------|------------|
-| Identify Speakers btn | control bg, primary text | border emphasis | elevated bg | 50% opacity, muted text | "Identifying..." text, disabled |
+| Identify Speakers btn | control bg, primary text | border emphasis | elevated bg | 50% opacity, muted text | "Identifying speakers..." text, disabled |
 | Speaker name label | text.secondary, no underline | text.secondary, underline | QInputDialog opens | -- | -- |
-| HF token Save btn | control bg | border emphasis | elevated bg | -- | -- |
+| HF token Save Token btn | control bg | border emphasis | elevated bg | -- | -- |
 | HF token QLineEdit | control bg, default border | default border | focus border | -- | -- |
 
 ---
