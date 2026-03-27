@@ -7,7 +7,11 @@ from meeting_transcriber.storage.exporter import (
     _format_duration,
     _format_timestamp,
     export_to_markdown,
+    export_to_obsidian,
+    export_to_srt,
     export_to_txt,
+    export_to_vtt,
+    obsidian_filename,
     save_export,
 )
 
@@ -230,3 +234,167 @@ def test_save_export_utf8(tmp_path: pathlib.Path) -> None:
     save_export(content, path)
 
     assert path.read_text(encoding="utf-8") == content
+
+
+# -- SRT export --
+
+
+def _sample_transcript_with_speakers() -> dict:
+    """speaker 필드가 포함된 테스트용 transcript."""
+    return {
+        "version": "1.0",
+        "metadata": {
+            "title": "Weekly Standup",
+            "created_at": "2026-03-25T10:00:00+09:00",
+            "duration_seconds": 150.0,
+            "languages": ["en", "ko"],
+            "source": "microphone",
+            "model": "whisper-small",
+            "tags": [],
+        },
+        "segments": [
+            {
+                "start": 0.0,
+                "end": 2.5,
+                "text": "Good morning everyone",
+                "language": "en",
+                "speaker": "Speaker 1",
+            },
+            {
+                "start": 2.5,
+                "end": 5.0,
+                "text": "Let's get started",
+                "language": "en",
+                "speaker": "Speaker 2",
+            },
+            {
+                "start": 65.0,
+                "end": 68.0,
+                "text": "다음 주제로 넘어갑시다",
+                "language": "ko",
+                "speaker": "Speaker 1",
+            },
+        ],
+    }
+
+
+def test_export_srt_basic() -> None:
+    """3개 세그먼트가 번호 매긴 SRT 항목으로 생성되는지 확인."""
+    srt = export_to_srt(_sample_transcript())
+    assert "1\n" in srt
+    assert "2\n" in srt
+    assert "3\n" in srt
+    assert "Good morning everyone" in srt
+    assert "Let's get started" in srt
+    assert "다음 주제로 넘어갑시다" in srt
+
+
+def test_export_srt_timestamp_format() -> None:
+    """SRT 타임스탬프가 쉼표 구분자를 사용하는지 확인 (HH:MM:SS,mmm)."""
+    srt = export_to_srt(_sample_transcript())
+    assert "00:01:05,000" in srt
+    assert "00:00:00,000" in srt
+
+
+def test_export_srt_with_speaker() -> None:
+    """speaker 키가 있으면 텍스트에 접두사가 붙는지 확인."""
+    srt = export_to_srt(_sample_transcript_with_speakers())
+    assert "Speaker 1: Good morning everyone" in srt
+    assert "Speaker 2: Let's get started" in srt
+
+
+def test_export_srt_without_speaker() -> None:
+    """speaker 키가 없으면 텍스트만 출력되는지 확인."""
+    srt = export_to_srt(_sample_transcript())
+    assert "Speaker" not in srt
+    assert "Good morning everyone" in srt
+
+
+def test_export_srt_empty_segments() -> None:
+    """빈 세그먼트 리스트는 빈 문자열을 반환하는지 확인."""
+    transcript = {"metadata": {"title": "Empty"}, "segments": []}
+    srt = export_to_srt(transcript)
+    assert srt == ""
+
+
+# -- VTT export --
+
+
+def test_export_vtt_header() -> None:
+    """VTT 출력이 WEBVTT 헤더로 시작하는지 확인."""
+    vtt = export_to_vtt(_sample_transcript())
+    assert vtt.startswith("WEBVTT\n\n")
+
+
+def test_export_vtt_timestamp_format() -> None:
+    """VTT 타임스탬프가 마침표 구분자를 사용하는지 확인 (HH:MM:SS.mmm)."""
+    vtt = export_to_vtt(_sample_transcript())
+    assert "00:01:05.000" in vtt
+    assert "00:00:00.000" in vtt
+
+
+def test_export_vtt_with_speaker() -> None:
+    """speaker 라벨이 VTT에서 접두사로 붙는지 확인."""
+    vtt = export_to_vtt(_sample_transcript_with_speakers())
+    assert "Speaker 1: Good morning everyone" in vtt
+
+
+def test_export_vtt_basic() -> None:
+    """3개 세그먼트가 번호 매긴 VTT 항목으로 생성되는지 확인."""
+    vtt = export_to_vtt(_sample_transcript())
+    assert "1\n" in vtt
+    assert "2\n" in vtt
+    assert "3\n" in vtt
+    assert "Good morning everyone" in vtt
+
+
+# -- Obsidian export --
+
+
+def test_export_obsidian_frontmatter() -> None:
+    """Obsidian 출력이 YAML frontmatter로 시작하는지 확인."""
+    md = export_to_obsidian(_sample_transcript())
+    assert md.startswith("---\n")
+    assert "title:" in md
+    assert "date:" in md
+    assert "duration:" in md
+    assert "languages:" in md
+    assert "source:" in md
+
+
+def test_export_obsidian_body() -> None:
+    """Obsidian 본문에 타임스탬프와 텍스트가 포함되는지 확인."""
+    md = export_to_obsidian(_sample_transcript())
+    assert "# Weekly Standup" in md
+    assert "Good morning everyone" in md
+    assert "[00:00]" in md or "[01:05]" in md
+
+
+def test_export_obsidian_ai_results() -> None:
+    """AI 결과(요약, 키워드)가 Obsidian에 포함되는지 확인."""
+    transcript = _sample_ai_transcript()
+    md = export_to_obsidian(transcript)
+    assert "Q1 roadmap" in md
+    assert "meeting" in md
+
+
+def test_obsidian_filename() -> None:
+    """obsidian_filename()이 YYYY-MM-DD_title.md 형식을 반환하는지 확인."""
+    transcript = _sample_transcript()
+    fname = obsidian_filename(transcript)
+    assert fname == "2026-03-25_Weekly_Standup.md"
+
+
+def test_obsidian_filename_sanitization() -> None:
+    """파일명 비안전 문자가 제거되는지 확인."""
+    transcript = _sample_transcript()
+    transcript["metadata"]["title"] = "My/Meeting\\Notes|#^[test]"
+    fname = obsidian_filename(transcript)
+    assert "/" not in fname
+    assert "\\" not in fname
+    assert "|" not in fname
+    assert "#" not in fname
+    assert "^" not in fname
+    assert "[" not in fname
+    assert "]" not in fname
+    assert fname.endswith(".md")
