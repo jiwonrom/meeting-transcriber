@@ -1,4 +1,5 @@
 """앱 전역 상수 정의."""
+
 from __future__ import annotations
 
 import pathlib
@@ -43,3 +44,8 @@ SUPPORTED_AUDIO_FORMATS = (".wav", ".mp3", ".m4a")
 BLACKHOLE_DEVICE_NAMES = ("blackhole 2ch", "blackhole 16ch", "blackhole 64ch")
 AGGREGATE_DEVICE_NAME = "Scribe Audio (Mic + System)"
 AGGREGATE_DEVICE_UID = "com.scribe.aggregate-device"
+
+# 화자 분리 (Speaker Diarization)
+DIARIZATION_MODEL = "pyannote/speaker-diarization-community-1"
+DIARIZATION_DEVICE = "cpu"  # MPS has sparse tensor bugs with pyannote (PyTorch issue #143955)
+DIARIZATION_CACHE_DIR = DEFAULT_WORKSPACE_DIR / "models" / "pyannote"

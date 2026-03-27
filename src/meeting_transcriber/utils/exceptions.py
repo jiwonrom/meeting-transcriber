@@ -1,4 +1,5 @@
 """프로젝트 전역 예외 정의."""
+
 from __future__ import annotations
 
 
@@ -32,3 +33,7 @@ class AudioCaptureError(MeetingTranscriberError):
 
 class SystemAudioError(MeetingTranscriberError):
     """시스템 오디오 설정 오류 (BlackHole 미설치, Aggregate Device 생성 실패 등)."""
+
+
+class DiarizationError(MeetingTranscriberError):
+    """화자 분리 실행 중 오류 발생 (모델 미설치, 토큰 누락 등)."""
