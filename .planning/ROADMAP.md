@@ -1,0 +1,94 @@
+# Roadmap: Scribe v2.0
+
+## Overview
+
+Scribe v2.0 transforms the app from a personal mic transcriber into a full meeting intelligence platform. The roadmap starts with zero-dependency quick wins (export formats, multi-provider AI), then tackles the highest-value audio feature (system audio capture), adds speaker identification, builds meeting-aware intelligence on top, and culminates with cross-meeting analysis. Each phase delivers a complete, independently verifiable capability.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Export & Multi-Provider** - SRT/VTT/Obsidian export and BYOK multi-provider AI support
+- [ ] **Phase 2: System Audio Capture** - BlackHole integration for capturing both sides of calls
+- [ ] **Phase 3: Speaker Diarization** - Post-recording speaker identification with labeled transcripts
+- [ ] **Phase 4: Meeting Intelligence** - Meeting templates, adaptive summaries, and auto meeting detection
+- [ ] **Phase 5: Cross-Meeting Analysis** - Multi-transcript selection, combined insights, and searchable index
+
+## Phase Details
+
+### Phase 1: Export & Multi-Provider
+**Goal**: Users can export transcripts in professional subtitle formats and to Obsidian, and can use their own AI provider keys
+**Depends on**: Nothing (builds on v1.5 foundation)
+**Requirements**: EXP-01, EXP-02, EXP-03, EXP-04, BYOK-01, BYOK-02, BYOK-03, BYOK-04
+**Success Criteria** (what must be TRUE):
+  1. User can export any transcript as an SRT file with correct timestamp formatting and open it in a video player
+  2. User can export any transcript as a VTT file with correct timestamp formatting
+  3. User can export a transcript to a configured Obsidian vault directory as properly formatted Markdown with frontmatter
+  4. User can configure a default export directory in Preferences that persists across app restarts
+  5. User can add OpenAI or Anthropic API keys in Preferences and select which provider handles summarization, proofreading, and translation -- with automatic fallback if the primary provider fails
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 2: System Audio Capture
+**Goal**: Users can capture system audio (the other side of calls) alongside their microphone
+**Depends on**: Phase 1 (export formats ready for richer transcripts)
+**Requirements**: SYSAUD-01, SYSAUD-02, SYSAUD-03, SYSAUD-04
+**Success Criteria** (what must be TRUE):
+  1. App detects whether BlackHole is installed and clearly communicates the status to the user
+  2. User who does not have BlackHole can follow the in-app setup wizard to install it and create an Aggregate Device without leaving the app
+  3. User can select system audio as an input source from the recording controls and see it transcribed
+  4. User can capture microphone and system audio simultaneously, producing a single merged transcript
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 3: Speaker Diarization
+**Goal**: Transcripts identify who said what, with speaker labels visible in the UI and exports
+**Depends on**: Phase 2 (dual-channel audio improves diarization accuracy)
+**Requirements**: DIAR-01, DIAR-02, DIAR-03, DIAR-04
+**Success Criteria** (what must be TRUE):
+  1. After a recording completes, user can trigger diarization and see speaker labels assigned to transcript segments
+  2. Transcript viewer displays color-coded speaker labels next to each segment
+  3. Existing v1.x transcripts load without error (schema v2.0 migration is backward-compatible)
+  4. SRT/VTT exports include speaker labels prefixed to each subtitle entry when diarization data is available
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 4: Meeting Intelligence
+**Goal**: Users get structured, context-aware summaries tailored to their meeting type, with automatic recording prompts
+**Depends on**: Phase 3 (speaker labels enable role-based templates), Phase 2 (system audio enables meeting detection value)
+**Requirements**: TPL-01, TPL-02, TPL-03, DET-01, DET-02
+**Success Criteria** (what must be TRUE):
+  1. User can select a meeting template (Team Meeting, 1:1, Lecture, Interview) before or after recording
+  2. AI summary output format adapts to the selected template (e.g., action items for meetings, Q&A pairs for lectures)
+  3. User can create a custom template with their own prompt instructions and use it for future recordings
+  4. When Zoom, Teams, Meet, or FaceTime is active, the app surfaces a notification offering to start recording
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 5: Cross-Meeting Analysis
+**Goal**: Users can analyze patterns and action items across multiple meetings
+**Depends on**: Phase 4 (templates provide structured data that improves cross-meeting insights)
+**Requirements**: CMA-01, CMA-02, CMA-03
+**Success Criteria** (what must be TRUE):
+  1. User can select two or more transcripts from the sidebar and initiate a combined analysis
+  2. AI generates a cross-meeting summary that highlights recurring topics, unresolved action items, and decision evolution
+  3. App maintains a lightweight searchable index of transcript metadata so cross-meeting queries respond without loading full transcript files
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Export & Multi-Provider | 0/TBD | Not started | - |
+| 2. System Audio Capture | 0/TBD | Not started | - |
+| 3. Speaker Diarization | 0/TBD | Not started | - |
+| 4. Meeting Intelligence | 0/TBD | Not started | - |
+| 5. Cross-Meeting Analysis | 0/TBD | Not started | - |
