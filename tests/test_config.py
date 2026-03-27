@@ -19,6 +19,18 @@ def test_load_settings_returns_defaults_when_no_file(tmp_path: object) -> None:
     assert settings["theme"] == "system"
 
 
+def test_default_settings_system_audio_schema() -> None:
+    """기본 설정에 system_audio 섹션이 포함되어 있는지 확인."""
+    from meeting_transcriber.utils.config import _default_settings
+
+    settings = _default_settings()
+    sys_audio = settings["audio"]["system_audio"]
+    assert sys_audio["enabled"] is False
+    assert sys_audio["blackhole_uid"] is None
+    assert sys_audio["aggregate_device_uid"] is None
+    assert sys_audio["mic_device_uid"] is None
+
+
 def test_save_and_load_settings_roundtrip(tmp_path: object) -> None:
     """설정을 저장하고 다시 로드했을 때 동일한지 확인."""
     import pathlib
