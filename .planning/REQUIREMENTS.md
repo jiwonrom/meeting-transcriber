@@ -7,9 +7,9 @@
 
 ### Export
 
-- [ ] **EXP-01**: User can export transcript as SRT subtitle file with proper timestamp formatting
-- [ ] **EXP-02**: User can export transcript as VTT subtitle file with proper timestamp formatting
-- [ ] **EXP-03**: User can export transcript as Obsidian-compatible Markdown to a configured vault directory
+- [x] **EXP-01**: User can export transcript as SRT subtitle file with proper timestamp formatting
+- [x] **EXP-02**: User can export transcript as VTT subtitle file with proper timestamp formatting
+- [x] **EXP-03**: User can export transcript as Obsidian-compatible Markdown to a configured vault directory
 - [ ] **EXP-04**: User can configure default export directory in Preferences
 
 ### Multi-Provider (BYOK)
@@ -73,9 +73,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXP-01 | Phase 1 | Pending |
-| EXP-02 | Phase 1 | Pending |
-| EXP-03 | Phase 1 | Pending |
+| EXP-01 | Phase 1 | Complete |
+| EXP-02 | Phase 1 | Complete |
+| EXP-03 | Phase 1 | Complete |
 | EXP-04 | Phase 1 | Pending |
 | BYOK-01 | Phase 1 | Pending |
 | BYOK-02 | Phase 1 | Pending |

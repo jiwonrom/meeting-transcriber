@@ -26,6 +26,14 @@ def _default_settings() -> dict[str, Any]:
             "post_recording": "ask",  # "delete" | "keep" | "ask"
         },
         "theme": "system",
+        "export": {
+            "default_dir": "",
+            "obsidian_vault": "",
+        },
+        "ai": {
+            "default_provider": "gemini",
+            "task_overrides": {},
+        },
     }
 
 

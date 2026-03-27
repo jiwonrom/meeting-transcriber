@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Export core: SRT/VTT/Obsidian export functions + config defaults
+- [x] 01-01-PLAN.md — Export core: SRT/VTT/Obsidian export functions + config defaults
 - [x] 01-02-PLAN.md — Provider core: OpenAI/Anthropic providers + ProviderManager with fallback
 - [ ] 01-03-PLAN.md — UI wiring: settings dialog extensions + export buttons + ProviderManager integration
 
@@ -44,7 +44,7 @@ Plans:
 **Depends on**: Phase 1 (export formats ready for richer transcripts)
 **Requirements**: SYSAUD-01, SYSAUD-02, SYSAUD-03, SYSAUD-04
 **Success Criteria** (what must be TRUE):
-  1. App detects whether BlackHole is installed and clearly communicates the status to the user
+  1. App detects whether BlackHole virtual audio driver is installed and clearly communicates the status to the user
   2. User who does not have BlackHole can follow the in-app setup wizard to install it and create an Aggregate Device without leaving the app
   3. User can select system audio as an input source from the recording controls and see it transcribed
   4. User can capture microphone and system audio simultaneously, producing a single merged transcript
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Export & Multi-Provider | 0/3 | Planning complete | - |
+| 1. Export & Multi-Provider | 2/3 | Executing | - |
 | 2. System Audio Capture | 0/TBD | Not started | - |
 | 3. Speaker Diarization | 0/TBD | Not started | - |
 | 4. Meeting Intelligence | 0/TBD | Not started | - |

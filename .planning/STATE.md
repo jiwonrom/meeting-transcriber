@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
+stopped_at: Completed 01-01-PLAN.md and 01-02-PLAN.md
 last_updated: "2026-03-27T04:03:54.448Z"
 last_activity: 2026-03-27
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P01 | 3min | 2 tasks | 4 files |
 | Phase 01 P02 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
@@ -64,6 +65,7 @@ Recent decisions affecting current work:
 - [v2.0 init]: Phase 1 bundles exports + BYOK as zero-dependency quick wins
 - [v2.0 init]: Post-recording diarization before real-time (deferred RT-DIAR-01 to v3.0)
 - [v2.0 init]: BlackHole for system audio; research ScreenCaptureKit as alternative before committing
+- [Phase 01]: SRT comma separator, VTT period separator per subtitle standards
 - [Phase 01]: Same prompt strings across all providers for consistent AI output
 - [Phase 01]: FallbackProvider adapter pattern avoids modifying AITaskWorker interface
 - [Phase 01]: Lazy import via importlib for provider instantiation to avoid SDK dependency errors
@@ -81,5 +83,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-27T04:03:54.445Z
-Stopped at: Completed 01-02-PLAN.md
+Stopped at: Completed 01-01-PLAN.md and 01-02-PLAN.md
 Resume file: None
