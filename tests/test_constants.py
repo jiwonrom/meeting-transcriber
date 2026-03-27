@@ -71,3 +71,24 @@ def test_supported_audio_formats() -> None:
     assert ".wav" in SUPPORTED_AUDIO_FORMATS
     assert ".mp3" in SUPPORTED_AUDIO_FORMATS
     assert ".m4a" in SUPPORTED_AUDIO_FORMATS
+
+
+def test_blackhole_device_names() -> None:
+    """BlackHole 장치명 상수가 올바른지 확인."""
+    from meeting_transcriber.utils.constants import BLACKHOLE_DEVICE_NAMES
+
+    assert isinstance(BLACKHOLE_DEVICE_NAMES, tuple)
+    assert "blackhole 2ch" in BLACKHOLE_DEVICE_NAMES
+    assert "blackhole 16ch" in BLACKHOLE_DEVICE_NAMES
+    assert "blackhole 64ch" in BLACKHOLE_DEVICE_NAMES
+
+
+def test_aggregate_device_constants() -> None:
+    """Aggregate Device 상수가 올바른지 확인."""
+    from meeting_transcriber.utils.constants import (
+        AGGREGATE_DEVICE_NAME,
+        AGGREGATE_DEVICE_UID,
+    )
+
+    assert AGGREGATE_DEVICE_NAME == "Scribe Audio (Mic + System)"
+    assert AGGREGATE_DEVICE_UID == "com.scribe.aggregate-device"
