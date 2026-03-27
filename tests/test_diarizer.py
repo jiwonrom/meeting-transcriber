@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pathlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from PyQt6.QtCore import QThread
@@ -262,3 +262,169 @@ class TestDiarizationWorker:
             worker.run()
 
         assert "Identifying speakers..." in progress_msgs
+
+
+# ============================================================
+# CoreML 최적화 테스트
+# ============================================================
+
+
+class TestCoreMLOptimization:
+    """CoreML 변환 시도 및 CPU 폴백 테스트."""
+
+    def _make_worker(self) -> DiarizationWorker:
+        """테스트용 DiarizationWorker를 생성한다."""
+        return DiarizationWorker(
+            audio_path=pathlib.Path("/tmp/test.wav"),
+            segments=[{"start": 0.0, "end": 5.0, "text": "Hello"}],
+            hf_token="fake-token",
+        )
+
+    def test_coreml_success_returns_pipeline(self, tmp_path: pathlib.Path) -> None:
+        """coremltools 사용 가능하고 변환 성공 시 파이프라인 반환."""
+        worker = self._make_worker()
+
+        mock_ct = MagicMock()
+        mock_pipeline = MagicMock()
+        mock_torch = MagicMock()
+
+        # Simulate segmentation model
+        mock_seg_model = MagicMock()
+        mock_pipeline._segmentation.model = mock_seg_model
+
+        with patch(
+            "meeting_transcriber.core.diarizer.DIARIZATION_COREML_DIR",
+            tmp_path / "coreml",
+        ):
+            result = worker._try_coreml_pipeline(mock_pipeline, mock_torch, mock_ct)
+
+        assert result is not None
+
+    def test_coreml_no_coremltools_returns_none(self) -> None:
+        """coremltools 미설치 시 None 반환."""
+        worker = self._make_worker()
+        mock_pipeline = MagicMock()
+        mock_torch = MagicMock()
+
+        result = worker._try_coreml_pipeline(mock_pipeline, mock_torch, None)
+
+        assert result is None
+
+    def test_coreml_conversion_failure_returns_none(self, tmp_path: pathlib.Path) -> None:
+        """coremltools 변환 실패 시 None 반환."""
+        worker = self._make_worker()
+
+        mock_ct = MagicMock()
+        mock_ct.convert.side_effect = RuntimeError("Unsupported operation")
+        mock_pipeline = MagicMock()
+        mock_torch = MagicMock()
+
+        # Make traced model raise during convert
+        mock_seg_model = MagicMock()
+        mock_pipeline._segmentation.model = mock_seg_model
+
+        with patch(
+            "meeting_transcriber.core.diarizer.DIARIZATION_COREML_DIR",
+            tmp_path / "coreml",
+        ):
+            result = worker._try_coreml_pipeline(mock_pipeline, mock_torch, mock_ct)
+
+        assert result is None
+
+    def test_coreml_uses_cached_model(self, tmp_path: pathlib.Path) -> None:
+        """캐시된 CoreML 모델 존재 시 변환 건너뛰기."""
+        worker = self._make_worker()
+
+        mock_ct = MagicMock()
+        mock_pipeline = MagicMock()
+        mock_torch = MagicMock()
+
+        # Create cached model file
+        coreml_dir = tmp_path / "coreml"
+        coreml_dir.mkdir(parents=True)
+        cached_model = coreml_dir / "segmentation.mlpackage"
+        cached_model.mkdir()  # mlpackage is a directory
+
+        with patch(
+            "meeting_transcriber.core.diarizer.DIARIZATION_COREML_DIR",
+            tmp_path / "coreml",
+        ):
+            result = worker._try_coreml_pipeline(mock_pipeline, mock_torch, mock_ct)
+
+        assert result is not None
+        # Should NOT have called convert since cache exists
+        mock_ct.convert.assert_not_called()
+
+    def test_coreml_worker_run_uses_coreml_when_available(
+        self, qtbot: object
+    ) -> None:
+        """CoreML 성공 시 run()에서 CoreML 경로 사용."""
+        worker = self._make_worker()
+
+        mock_pipeline_cls = MagicMock()
+        mock_pipeline = MagicMock()
+        mock_pipeline_cls.from_pretrained.return_value = mock_pipeline
+        mock_diarization = MagicMock()
+        mock_diarization.itertracks.return_value = []
+        mock_pipeline.return_value = mock_diarization
+        mock_torch = MagicMock()
+
+        progress_msgs: list[str] = []
+        worker.progress.connect(progress_msgs.append)
+
+        with (
+            patch(
+                "meeting_transcriber.core.diarizer._import_pipeline",
+                return_value=mock_pipeline_cls,
+            ),
+            patch(
+                "meeting_transcriber.core.diarizer._import_torch",
+                return_value=mock_torch,
+            ),
+            patch.object(DiarizationModelManager, "is_model_cached", return_value=True),
+            patch.object(
+                DiarizationWorker,
+                "_try_coreml_pipeline",
+                return_value=mock_pipeline,
+            ),
+        ):
+            worker.run()
+
+        assert "Identifying speakers (CoreML)..." in progress_msgs
+
+    def test_coreml_worker_run_falls_back_to_cpu(self, qtbot: object) -> None:
+        """CoreML 실패 시 run()에서 CPU 폴백 사용."""
+        worker = self._make_worker()
+
+        mock_pipeline_cls = MagicMock()
+        mock_pipeline = MagicMock()
+        mock_pipeline_cls.from_pretrained.return_value = mock_pipeline
+        mock_diarization = MagicMock()
+        mock_diarization.itertracks.return_value = []
+        mock_pipeline.return_value = mock_diarization
+        mock_torch = MagicMock()
+
+        progress_msgs: list[str] = []
+        worker.progress.connect(progress_msgs.append)
+
+        with (
+            patch(
+                "meeting_transcriber.core.diarizer._import_pipeline",
+                return_value=mock_pipeline_cls,
+            ),
+            patch(
+                "meeting_transcriber.core.diarizer._import_torch",
+                return_value=mock_torch,
+            ),
+            patch.object(DiarizationModelManager, "is_model_cached", return_value=True),
+            patch.object(
+                DiarizationWorker,
+                "_try_coreml_pipeline",
+                return_value=None,
+            ),
+        ):
+            worker.run()
+
+        assert "Identifying speakers..." in progress_msgs
+        # Should NOT have the CoreML progress message
+        assert "Identifying speakers (CoreML)..." not in progress_msgs

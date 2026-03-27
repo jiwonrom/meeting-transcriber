@@ -49,3 +49,4 @@ AGGREGATE_DEVICE_UID = "com.scribe.aggregate-device"
 DIARIZATION_MODEL = "pyannote/speaker-diarization-community-1"
 DIARIZATION_DEVICE = "cpu"  # MPS has sparse tensor bugs with pyannote (PyTorch issue #143955)
 DIARIZATION_CACHE_DIR = DEFAULT_WORKSPACE_DIR / "models" / "pyannote"
+DIARIZATION_COREML_DIR = DIARIZATION_CACHE_DIR / "coreml"
