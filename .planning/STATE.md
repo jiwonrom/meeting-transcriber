@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-03-27T04:55:11.821Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-27T05:55:44Z"
 last_activity: 2026-03-27
 progress:
   total_phases: 5
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** 실시간 캡션 -- 화면 위 자막으로 회의/강의를 실시간 전사
-**Current focus:** Phase 01 — export-multi-provider
+**Current focus:** Phase 02 — system-audio-capture
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 02 (system-audio-capture) — EXECUTING
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-03-27
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -55,6 +55,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P01 | 3min | 2 tasks | 4 files |
 | Phase 01 P02 | 4min | 2 tasks | 4 files |
 | Phase 01 P03 | 4min | 3 tasks | 3 files |
+| Phase 02 P01 | 4min | 2 tasks | 8 files |
+| Phase 02 P02 | 6min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -72,6 +74,10 @@ Recent decisions affecting current work:
 - [Phase 01]: Lazy import via importlib for provider instantiation to avoid SDK dependency errors
 - [Phase 01]: FallbackProvider adapter passed as single AIProvider to AITaskWorker for transparent multi-provider fallback
 - [Phase 01]: Export handlers use lazy imports in TranscriptViewer to avoid circular deps
+- [Phase 02]: Lazy import CoreAudio at function level for optional pyobjc dependency
+- [Phase 02]: Private Aggregate Device (isPrivate=1) for process-scoped lifecycle
+- [Phase 02]: QRectF in PyQt6.QtCore not QtGui -- use correct import path
+- [Phase 02]: isHidden() over isVisible() for headless pytest-qt widget testing
 
 ### Pending Todos
 
@@ -85,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T04:55:11.819Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-system-audio-capture/02-UI-SPEC.md
+Last session: 2026-03-27T05:55:44Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: None

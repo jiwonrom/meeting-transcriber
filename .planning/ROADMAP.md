@@ -48,11 +48,11 @@ Plans:
   2. User who does not have BlackHole can follow the in-app setup wizard to install it and create an Aggregate Device without leaving the app
   3. User can select system audio as an input source from the recording controls and see it transcribed
   4. User can capture microphone and system audio simultaneously, producing a single merged transcript
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 02-01-PLAN.md — Core backend: BlackHole detection, Aggregate Device CRUD, constants/exceptions/config
-- [ ] 02-02-PLAN.md — UI widgets: SystemAudioToggle, DualLevelMeter, BlackHoleSetupWizard
+- [x] 02-01-PLAN.md — Core backend: BlackHole detection, Aggregate Device CRUD, constants/exceptions/config
+- [x] 02-02-PLAN.md — UI widgets: SystemAudioToggle, DualLevelMeter, BlackHoleSetupWizard
 - [ ] 02-03-PLAN.md — Integration: MainWindow wiring, settings dialog, app.py signals, end-to-end verification
 
 **UI hint**: yes
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Export & Multi-Provider | 2/3 | Executing | - |
-| 2. System Audio Capture | 0/3 | Planned | - |
+| 2. System Audio Capture | 2/3 | In Progress|  |
 | 3. Speaker Diarization | 0/TBD | Not started | - |
 | 4. Meeting Intelligence | 0/TBD | Not started | - |
 | 5. Cross-Meeting Analysis | 0/TBD | Not started | - |
