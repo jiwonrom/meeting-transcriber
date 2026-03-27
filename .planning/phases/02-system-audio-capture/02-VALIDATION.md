@@ -38,12 +38,12 @@ created: 2026-03-27
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 02-01-01 | 01 | 0 | SYSAUD-01 | unit | `pytest tests/test_blackhole_detector.py -x` | ❌ W0 | ⬜ pending |
-| 02-01-02 | 01 | 1 | SYSAUD-01 | unit | `pytest tests/test_blackhole_detector.py -x` | ❌ W0 | ⬜ pending |
-| 02-02-01 | 02 | 1 | SYSAUD-02 | unit | `pytest tests/test_aggregate_device.py -x` | ❌ W0 | ⬜ pending |
-| 02-02-02 | 02 | 1 | SYSAUD-02 | integration | `pytest tests/test_setup_wizard.py -x` | ❌ W0 | ⬜ pending |
-| 02-03-01 | 03 | 2 | SYSAUD-03 | unit | `pytest tests/test_audio_capture.py -k system -x` | ✅ | ⬜ pending |
-| 02-04-01 | 04 | 2 | SYSAUD-04 | integration | `pytest tests/test_audio_capture.py -k merged -x` | ❌ W0 | ⬜ pending |
+| 01-T1 | 01 | 1 | SYSAUD-01 | unit | `python -c "from meeting_transcriber.utils..."` | ✅ | ⬜ pending |
+| 01-T2 | 01 | 1 | SYSAUD-01, SYSAUD-04 | unit | `pytest tests/test_system_audio.py -x` | ❌ W0 | ⬜ pending |
+| 02-T1 | 02 | 2 | SYSAUD-03 | unit | `pytest tests/test_system_audio_toggle.py -x` | ❌ W0 | ⬜ pending |
+| 02-T2 | 02 | 2 | SYSAUD-02 | integration | `pytest tests/test_blackhole_wizard.py -x` | ❌ W0 | ⬜ pending |
+| 03-T1 | 03 | 3 | SYSAUD-03, SYSAUD-04 | integration | `pytest tests/test_main_window.py -x` | ✅ | ⬜ pending |
+| 03-T2 | 03 | 3 | SYSAUD-02 | integration | `pytest tests/test_settings_dialog.py tests/test_main_window.py -x` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,9 +51,9 @@ created: 2026-03-27
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_blackhole_detector.py` — stubs for SYSAUD-01 (BlackHole detection)
-- [ ] `tests/test_aggregate_device.py` — stubs for SYSAUD-02 (Aggregate Device creation)
-- [ ] `tests/test_setup_wizard.py` — stubs for SYSAUD-02 (setup wizard UI)
+- [ ] `tests/test_system_audio.py` — stubs for SYSAUD-01 (BlackHole detection) + SYSAUD-04 (Aggregate Device CRUD)
+- [ ] `tests/test_system_audio_toggle.py` — stubs for SYSAUD-03 (SystemAudioToggle widget)
+- [ ] `tests/test_blackhole_wizard.py` — stubs for SYSAUD-02 (BlackHoleSetupWizard UI)
 - [ ] `tests/conftest.py` — mock fixtures for CoreAudio APIs (pyobjc stubs)
 
 ---
