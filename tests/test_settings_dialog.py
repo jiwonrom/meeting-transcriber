@@ -1,7 +1,10 @@
 """settings_dialog 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
+
+from PyQt6.QtWidgets import QLabel
 
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
 from meeting_transcriber.utils.config import invalidate_settings_cache
@@ -72,3 +75,44 @@ def test_settings_dialog_save_api_keys(qtbot: object) -> None:
         assert mock_store.call_count == 2
         mock_store.assert_any_call("gemini", "test-gemini-key")
         mock_store.assert_any_call("openai", "test-openai-key")
+
+
+def test_system_audio_section_exists(qtbot: object) -> None:
+    """Audio 탭에 System Audio 섹션이 존재하는지 확인."""
+    with patch("meeting_transcriber.ui.settings_dialog.get_api_key", return_value=None):
+        dialog = SettingsDialog()
+        qtbot.addWidget(dialog)  # type: ignore[union-attr]
+
+    # Find the System Audio heading label in the audio tab
+    audio_tab = dialog._tabs.widget(2)  # Audio tab is index 2
+    labels = audio_tab.findChildren(QLabel)  # type: ignore[union-attr]
+    label_texts = [lbl.text() for lbl in labels]
+    assert "System Audio" in label_texts
+
+
+@patch(
+    "meeting_transcriber.ui.settings_dialog.is_blackhole_installed",
+    return_value=False,
+)
+def test_blackhole_status_not_installed(mock_bh: object, qtbot: object) -> None:
+    """BlackHole 미설치 시 상태가 올바르게 표시되는지 확인."""
+    with patch("meeting_transcriber.ui.settings_dialog.get_api_key", return_value=None):
+        dialog = SettingsDialog()
+        qtbot.addWidget(dialog)  # type: ignore[union-attr]
+
+    assert dialog._blackhole_status.text() == "Not installed"
+    assert dialog._blackhole_setup_btn.text() == "Set Up"
+
+
+@patch(
+    "meeting_transcriber.ui.settings_dialog.is_blackhole_installed",
+    return_value=True,
+)
+def test_blackhole_status_installed(mock_bh: object, qtbot: object) -> None:
+    """BlackHole 설치 시 상태가 올바르게 표시되는지 확인."""
+    with patch("meeting_transcriber.ui.settings_dialog.get_api_key", return_value=None):
+        dialog = SettingsDialog()
+        qtbot.addWidget(dialog)  # type: ignore[union-attr]
+
+    assert dialog._blackhole_status.text() == "Installed"
+    assert dialog._blackhole_setup_btn.text() == "Reconfigure"

@@ -1,4 +1,5 @@
 """Scribe — 메인 엔트리포인트."""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +14,11 @@ from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import QApplication, QDialog
 
 from meeting_transcriber.core.model_manager import is_model_downloaded
+from meeting_transcriber.core.system_audio import (
+    create_aggregate_device,
+    destroy_aggregate_device,
+    is_blackhole_installed,
+)
 from meeting_transcriber.storage.workspace import WorkspaceManager
 from meeting_transcriber.ui.main_window import MainWindow
 from meeting_transcriber.ui.onboarding import OnboardingWizard
@@ -20,6 +26,7 @@ from meeting_transcriber.ui.overlay import OverlayWidget
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
 from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.ui.tray import TrayIcon
+from meeting_transcriber.utils.config import load_settings, save_settings
 from meeting_transcriber.utils.constants import LOGS_DIR
 from meeting_transcriber.utils.shortcuts import ShortcutManager
 
@@ -32,12 +39,17 @@ def _setup_logging() -> None:
     log_file = LOGS_DIR / "scribe.log"
 
     handler = RotatingFileHandler(
-        log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8",
+        log_file,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
     )
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    ))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
 
     root = logging.getLogger()
     root.setLevel(logging.INFO)
@@ -75,10 +87,51 @@ def main() -> None:
     # 메인 윈도우
     window = MainWindow(workspace=workspace)
 
+    # Aggregate Device lifecycle management
+    # Private Aggregate Devices (isPrivate=1) are process-scoped and destroyed on exit.
+    # We recreate from saved UIDs on startup and destroy on quit.
+    aggregate_device_id: int | None = None
+
+    settings = load_settings()
+    sys_audio = settings.get("audio", {}).get("system_audio", {})
+
+    if is_blackhole_installed():
+        logger.info("BlackHole audio driver detected")
+
+        # Recreate Aggregate Device from saved UIDs if system audio was configured
+        mic_uid = sys_audio.get("mic_device_uid")
+        blackhole_uid = sys_audio.get("blackhole_uid")
+        if mic_uid and blackhole_uid:
+            try:
+                aggregate_device_id = create_aggregate_device(mic_uid, blackhole_uid)
+                logger.info("Aggregate Device recreated (id=%d)", aggregate_device_id)
+            except Exception:
+                logger.warning(
+                    "Failed to recreate Aggregate Device -- system audio may not work",
+                    exc_info=True,
+                )
+                aggregate_device_id = None
+    else:
+        logger.info("BlackHole audio driver not detected -- system audio disabled")
+        # If BlackHole was uninstalled since last session, disable system audio
+        if sys_audio.get("enabled"):
+            sys_audio["enabled"] = False
+            save_settings(settings)
+
+    # Destroy Aggregate Device on quit to clean up CoreAudio resources
+    def _cleanup_aggregate_device() -> None:
+        """앱 종료 시 Aggregate Device 정리."""
+        if aggregate_device_id is not None:
+            destroy_aggregate_device(aggregate_device_id)
+            logger.info("Aggregate Device destroyed on quit")
+
+    app.aboutToQuit.connect(_cleanup_aggregate_device)
+
     # 오버레이
     overlay = OverlayWidget()
     overlay.apply_theme(theme)
     overlay.restore_position()
+    overlay.show()
 
     # 트레이
     tray = TrayIcon()
@@ -128,6 +181,7 @@ def main() -> None:
     tray.quit_requested.connect(app.quit)
 
     window.caption_updated.connect(overlay.append_caption)
+    window.recording_started.connect(overlay.show)
     window.recording_started.connect(overlay.clear_caption)
     window.recording_started.connect(lambda: overlay.set_recording(True))
     window.recording_stopped.connect(lambda: overlay.set_recording(False))

@@ -25,8 +25,11 @@ from PyQt6.QtWidgets import (
 
 from meeting_transcriber.core.audio_capture import list_audio_devices
 from meeting_transcriber.core.model_manager import list_available_models
+from meeting_transcriber.core.system_audio import is_blackhole_installed
+from meeting_transcriber.ui.blackhole_wizard import BlackHoleSetupWizard
 from meeting_transcriber.utils.config import load_settings, save_settings
 from meeting_transcriber.utils.constants import (
+    AGGREGATE_DEVICE_NAME,
     OVERLAY_DEFAULT_LINES,
     OVERLAY_MAX_LINES,
     SUPPORTED_LANGUAGES,
@@ -146,7 +149,9 @@ class SettingsDialog(QDialog):
     def _create_audio_tab(self) -> QWidget:
         """Audio 탭."""
         tab = QWidget()
-        form = QFormLayout(tab)
+        audio_layout = QVBoxLayout(tab)
+
+        form = QFormLayout()
 
         self._device_combo = QComboBox()
         self._device_combo.addItem("System Default", None)
@@ -162,7 +167,68 @@ class SettingsDialog(QDialog):
         self._post_recording_combo.addItem("Delete after transcription", "delete")
         form.addRow("After Recording:", self._post_recording_combo)
 
+        audio_layout.addLayout(form)
+
+        # System Audio section
+        sys_audio_heading = QLabel("System Audio")
+        sys_audio_heading.setStyleSheet("font-size: 14px; font-weight: 600;")
+        audio_layout.addWidget(sys_audio_heading)
+
+        # BlackHole status row
+        status_row = QHBoxLayout()
+        status_row.addWidget(QLabel("BlackHole:"))
+        self._blackhole_status = QLabel()
+        self._blackhole_setup_btn = QPushButton()
+
+        if is_blackhole_installed():
+            self._blackhole_status.setText("Installed")
+            self._blackhole_status.setStyleSheet("color: #30D158; font-weight: 600;")
+            self._blackhole_setup_btn.setText("Reconfigure")
+        else:
+            self._blackhole_status.setText("Not installed")
+            self._blackhole_status.setStyleSheet("color: #98989D;")
+            self._blackhole_setup_btn.setText("Set Up")
+
+        self._blackhole_setup_btn.clicked.connect(self._open_blackhole_wizard)
+        status_row.addWidget(self._blackhole_status)
+        status_row.addStretch()
+        status_row.addWidget(self._blackhole_setup_btn)
+        audio_layout.addLayout(status_row)
+
+        # Aggregate Device status row
+        device_row = QHBoxLayout()
+        device_row.addWidget(QLabel("Device:"))
+        settings = load_settings()
+        agg_uid = settings.get("audio", {}).get("system_audio", {}).get(
+            "aggregate_device_uid"
+        )
+        if agg_uid:
+            self._agg_device_label = QLabel(AGGREGATE_DEVICE_NAME)
+            self._agg_device_label.setStyleSheet("color: #98989D;")
+        else:
+            self._agg_device_label = QLabel("Not configured")
+            self._agg_device_label.setStyleSheet("color: #6E6E73;")
+        device_row.addWidget(self._agg_device_label)
+        device_row.addStretch()
+        audio_layout.addLayout(device_row)
+
+        audio_layout.addStretch()
+
         return tab
+
+    def _open_blackhole_wizard(self) -> None:
+        """BlackHole 설치 위저드를 연다."""
+        wizard = BlackHoleSetupWizard(self)
+        wizard.setup_completed.connect(self._on_blackhole_setup_done)
+        wizard.exec()
+
+    def _on_blackhole_setup_done(self) -> None:
+        """BlackHole 설치 완료 -- 상태 갱신."""
+        self._blackhole_status.setText("Installed")
+        self._blackhole_status.setStyleSheet("color: #30D158; font-weight: 600;")
+        self._blackhole_setup_btn.setText("Reconfigure")
+        self._agg_device_label.setText(AGGREGATE_DEVICE_NAME)
+        self._agg_device_label.setStyleSheet("color: #98989D;")
 
     def _create_api_tab(self) -> QWidget:
         """API Keys 탭."""
