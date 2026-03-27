@@ -11,6 +11,7 @@ APP_VERSION = "1.5.0"
 DEFAULT_WORKSPACE_DIR = pathlib.Path.home() / ".meeting_transcriber"
 MODELS_DIR = DEFAULT_WORKSPACE_DIR / "models"
 SETTINGS_FILE = DEFAULT_WORKSPACE_DIR / "settings.json"
+LOGS_DIR = DEFAULT_WORKSPACE_DIR / "logs"
 
 # 지원 언어
 SUPPORTED_LANGUAGES = ("en", "ko", "zh", "ja")

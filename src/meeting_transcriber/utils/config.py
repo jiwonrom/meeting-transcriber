@@ -1,4 +1,4 @@
-"""설정 관리 — settings.json 로드/저장."""
+"""설정 관리 — settings.json 로드/저장 (메모리 캐시 포함)."""
 from __future__ import annotations
 
 import json
@@ -6,6 +6,8 @@ import pathlib
 from typing import Any
 
 from meeting_transcriber.utils.constants import DEFAULT_WORKSPACE_DIR, SETTINGS_FILE
+
+_settings_cache: dict[str, Any] | None = None
 
 
 def _default_settings() -> dict[str, Any]:
@@ -48,21 +50,37 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 def load_settings() -> dict[str, Any]:
     """settings.json을 읽어 기본값과 병합하여 반환한다.
 
+    캐시가 있으면 디스크를 읽지 않고 캐시를 반환한다.
     파일이 없거나 손상되어도 기본값으로 동작한다.
     """
+    global _settings_cache  # noqa: PLW0603
+    if _settings_cache is not None:
+        return _settings_cache
+
     defaults = _default_settings()
     if not SETTINGS_FILE.exists():
+        _settings_cache = defaults
         return defaults
     try:
         with open(SETTINGS_FILE, encoding="utf-8") as f:
             user_settings: dict[str, Any] = json.load(f)
-        return _deep_merge(defaults, user_settings)
+        _settings_cache = _deep_merge(defaults, user_settings)
+        return _settings_cache
     except (json.JSONDecodeError, OSError):
+        _settings_cache = defaults
         return defaults
 
 
 def save_settings(settings: dict[str, Any]) -> None:
-    """settings.json에 설정을 저장한다."""
+    """settings.json에 설정을 저장하고 캐시를 갱신한다."""
+    global _settings_cache  # noqa: PLW0603
     ensure_workspace()
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2, ensure_ascii=False)
+    _settings_cache = settings
+
+
+def invalidate_settings_cache() -> None:
+    """설정 캐시를 무효화한다. 다음 load_settings에서 디스크를 다시 읽는다."""
+    global _settings_cache  # noqa: PLW0603
+    _settings_cache = None

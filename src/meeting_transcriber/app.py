@@ -1,9 +1,11 @@
-"""Meeting Transcriber — 메인 엔트리포인트."""
+"""Scribe — 메인 엔트리포인트."""
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import sys
+from logging.handlers import RotatingFileHandler
 
 os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
 
@@ -18,11 +20,35 @@ from meeting_transcriber.ui.overlay import OverlayWidget
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
 from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.ui.tray import TrayIcon
+from meeting_transcriber.utils.constants import LOGS_DIR
 from meeting_transcriber.utils.shortcuts import ShortcutManager
+
+logger = logging.getLogger(__name__)
+
+
+def _setup_logging() -> None:
+    """로깅을 설정한다. ~/.meeting_transcriber/logs/scribe.log에 기록."""
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOGS_DIR / "scribe.log"
+
+    handler = RotatingFileHandler(
+        log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8",
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
 
 
 def main() -> None:
     """앱을 시작한다."""
+    _setup_logging()
+    logger.info("Scribe starting")
+
     app = QApplication(sys.argv)
     app.setApplicationName("Meeting Transcriber")
     app.setApplicationDisplayName("Meeting Transcriber")
@@ -105,6 +131,10 @@ def main() -> None:
     window.recording_started.connect(overlay.clear_caption)
     window.recording_started.connect(lambda: overlay.set_recording(True))
     window.recording_stopped.connect(lambda: overlay.set_recording(False))
+
+    # 트레이 ↔ 윈도우 녹음 상태 동기화
+    window.recording_started.connect(lambda: tray.set_recording(True))
+    window.recording_stopped.connect(lambda: tray.set_recording(False))
 
     # 단축키
     def _toggle_recording() -> None:

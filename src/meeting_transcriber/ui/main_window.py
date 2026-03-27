@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import pathlib
 import tempfile
 from datetime import UTC, datetime
@@ -40,6 +41,8 @@ from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.utils.config import load_settings
 from meeting_transcriber.utils.constants import APP_NAME
 
+logger = logging.getLogger(__name__)
+
 # ============================================================
 # 녹음 버튼 (큰 원형, Voice Memos 스타일)
 # ============================================================
@@ -51,9 +54,22 @@ class RecordButton(QPushButton):
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
         self._recording = False
+        self._recording_color = QColor("#FF453A")
+        self._ring_color = QColor(255, 255, 255, 38)
         self.setFixedSize(56, 56)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("border: none; background: transparent;")
+
+    def set_theme_colors(self, recording: str, ring_rgba: tuple[int, int, int, int]) -> None:
+        """테마 색상을 설정한다.
+
+        Args:
+            recording: 녹음 상태 색상 (hex)
+            ring_rgba: 외부 링 RGBA 튜플
+        """
+        self._recording_color = QColor(recording)
+        self._ring_color = QColor(*ring_rgba)
+        self.update()
 
     def set_recording(self, recording: bool) -> None:
         """녹음 상태를 설정한다."""
@@ -65,8 +81,7 @@ class RecordButton(QPushButton):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        red = QColor("#FF453A")  # status.recording
-        painter.setBrush(red)
+        painter.setBrush(self._recording_color)
         painter.setPen(Qt.PenStyle.NoPen)
 
         if self._recording:
@@ -76,7 +91,7 @@ class RecordButton(QPushButton):
             y = (self.height() - size) // 2
             path = QPainterPath()
             path.addRoundedRect(float(x), float(y), float(size), float(size), 4.0, 4.0)
-            painter.fillPath(path, red)
+            painter.fillPath(path, self._recording_color)
         else:
             # 녹음 아이콘: 큰 원
             size = 40
@@ -86,7 +101,7 @@ class RecordButton(QPushButton):
 
         # 외부 링
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QColor(255, 255, 255, 38))  # border.emphasis rgba
+        painter.setPen(self._ring_color)
         ring_size = 52
         rx = (self.width() - ring_size) // 2
         ry = (self.height() - ring_size) // 2
@@ -254,7 +269,7 @@ class TranscriptViewer(QWidget):
             )
             save_transcript(transcript, pathlib.Path(self._current_path))
         except Exception:
-            pass  # 저장 실패 무시 (상태바에서 알림은 MainWindow 담당)
+            logger.warning("Failed to save proofread: %s", self._current_path, exc_info=True)
 
     def clear(self) -> None:
         """뷰어 내용을 초기화한다."""
@@ -371,7 +386,7 @@ class ChunkTranscriberThread(QThread):
             if text.strip():
                 self.text_ready.emit(text.strip(), segments)
         except Exception:
-            pass  # 실시간 전사 실패는 무시 (최종 전사에서 복구)
+            logger.debug("Chunk transcription failed", exc_info=True)
 
 
 # ============================================================
@@ -544,6 +559,7 @@ class MainWindow(QMainWindow):
                 try:
                     transcript = load_transcript(t_path)
                 except Exception:
+                    logger.warning("Failed to load transcript: %s", t_path)
                     continue
 
                 meta = transcript.get("metadata", {})
