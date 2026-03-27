@@ -63,14 +63,15 @@ Plans:
 **Requirements**: DIAR-01, DIAR-02, DIAR-03, DIAR-04
 **Success Criteria** (what must be TRUE):
   1. After a recording completes, user can trigger diarization and see speaker labels assigned to transcript segments
-  2. Transcript viewer displays color-coded speaker labels next to each segment
+  2. Transcript viewer displays speaker labels (inline text prefix) next to each segment
   3. Existing v1.x transcripts load without error (schema v2.0 migration is backward-compatible)
   4. SRT/VTT exports include speaker labels prefixed to each subtitle entry when diarization data is available
-**Plans:** 2 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Core backend: DiarizationWorker, temporal alignment, schema v2.0, constants/exceptions
-- [ ] 03-02-PLAN.md — UI integration: TranscriptViewer speaker labels, Identify Speakers button, speaker rename, Settings HF token, auto-diarization
+- [ ] 03-01-PLAN.md — Core backend: DiarizationWorker, temporal alignment, model download manager, schema v2.0, constants/exceptions
+- [ ] 03-02-PLAN.md — UI integration: audio preservation, auto-diarization, TranscriptViewer speaker labels, Identify Speakers button, speaker rename, Settings HF token
+- [ ] 03-03-PLAN.md — CoreML/ANE optimization: attempt CoreML conversion of pyannote model with CPU fallback gate
 
 **UI hint**: yes
 
@@ -106,6 +107,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Export & Multi-Provider | 2/3 | Executing | - |
 | 2. System Audio Capture | 2/3 | In Progress|  |
-| 3. Speaker Diarization | 0/2 | Planned | - |
+| 3. Speaker Diarization | 0/3 | Planned | - |
 | 4. Meeting Intelligence | 0/TBD | Not started | - |
 | 5. Cross-Meeting Analysis | 0/TBD | Not started | - |
