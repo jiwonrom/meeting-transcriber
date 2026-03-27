@@ -57,6 +57,16 @@
     "itemHeight": 56,
     "iconSize": 16
   },
+  "controlBar": {
+    "height": 72,
+    "heightDual": 80,
+    "buttonSize": 56,
+    "levelBarHeight": 4,
+    "toggleWidth": 44,
+    "toggleHeight": 24,
+    "toggleThumbSize": 20,
+    "toggleBorderRadius": 12
+  },
   "overlay": {
     "maxLines": 2,
     "padding": 16,
