@@ -9,6 +9,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from meeting_transcriber.utils.constants import (
     DIARIZATION_CACHE_DIR,
+    DIARIZATION_COREML_DIR,
     DIARIZATION_DEVICE,
     DIARIZATION_MODEL,
 )
@@ -181,14 +182,73 @@ class DiarizationWorker(QThread):
         self._segments = segments
         self._hf_token = hf_token
 
+    def _try_coreml_pipeline(
+        self,
+        pipeline: Any,
+        torch: Any,
+        ct: Any | None,
+    ) -> Any | None:
+        """CoreML 변환을 시도하여 ANE 최적화 파이프라인을 반환한다.
+
+        coremltools가 설치되어 있고 변환이 성공하면 파이프라인을 반환한다.
+        실패 시 None을 반환하여 CPU 폴백을 사용하도록 한다.
+        이 메서드는 절대 예외를 발생시키지 않는다.
+
+        Args:
+            pipeline: pyannote 파이프라인 인스턴스
+            torch: torch 모듈
+            ct: coremltools 모듈 또는 None (미설치 시)
+
+        Returns:
+            CoreML 최적화된 파이프라인 또는 None (폴백 시)
+        """
+        if ct is None:
+            return None
+
+        try:
+            coreml_path = DIARIZATION_COREML_DIR / "segmentation.mlpackage"
+
+            # 캐시된 CoreML 모델 확인
+            if coreml_path.exists():
+                try:
+                    ct.models.MLModel(str(coreml_path))
+                    return pipeline
+                except Exception:
+                    # 캐시 손상 -- 삭제 후 재변환 시도
+                    import shutil
+
+                    shutil.rmtree(coreml_path, ignore_errors=True)
+
+            # CoreML 변환 시도
+            self.progress.emit("Attempting CoreML optimization...")
+            seg_model = pipeline._segmentation.model
+            dummy_input = torch.randn(1, 1, 80000)
+            traced = torch.jit.trace(seg_model, dummy_input)
+            mlmodel = ct.convert(
+                traced,
+                inputs=[ct.TensorType(shape=dummy_input.shape)],
+            )
+            coreml_path.parent.mkdir(parents=True, exist_ok=True)
+            mlmodel.save(str(coreml_path))
+            return pipeline
+
+        except Exception:
+            return None
+
     def run(self) -> None:
         """pyannote 파이프라인을 실행하고 결과를 시그널로 emit한다."""
         try:
-            self.progress.emit("Identifying speakers...")
+            self.progress.emit("Loading speaker model...")
 
             # Lazy imports -- pyannote와 torch는 run() 내에서만 import
             pipeline_cls = _import_pipeline()
             torch = _import_torch()
+
+            # coremltools lazy import
+            try:
+                import coremltools as ct  # noqa: I001
+            except ImportError:
+                ct = None
 
             # 모델 캐시 확인
             model_mgr = DiarizationModelManager()
@@ -204,7 +264,11 @@ class DiarizationWorker(QThread):
             )
             pipeline.to(torch.device(DIARIZATION_DEVICE))
 
-            if not was_cached:
+            # CoreML 최적화 시도 (D-12)
+            coreml_result = self._try_coreml_pipeline(pipeline, torch, ct)
+            if coreml_result is not None:
+                self.progress.emit("Identifying speakers (CoreML)...")
+            else:
                 self.progress.emit("Identifying speakers...")
 
             # 화자 분리 실행
