@@ -184,7 +184,7 @@ def test_mid_recording_system_audio_failure(
 
     # Verify fallback behavior
     assert window._recording_with_system_audio is False
-    assert "system audio lost" in window._status_bar.currentMessage().lower()
+    assert "system audio disconnected" in window._status_bar.currentMessage().lower()
     assert not window._level_meter._system_bar.isVisible()
     mock_worker_cls.assert_called_once_with(device=None)
 
@@ -265,6 +265,175 @@ def test_transcript_viewer_has_tabs(qtbot: object) -> None:
     assert viewer._tabs.tabText(0) == "Original"
     assert viewer._tabs.tabText(1) == "Proofread"
     assert viewer._tabs.tabText(2) == "Summary"
+
+
+def test_transcript_viewer_speaker_labels(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """v2.0 transcript에서 화자 라벨이 인라인 접두사로 표시되는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+
+    path = tmp_path / "speaker_test" / "transcript.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": "2.0",
+                "metadata": {
+                    "title": "Speaker Test",
+                    "duration_seconds": 30,
+                    "languages": ["en"],
+                    "speakers": {"SPEAKER_00": "Speaker 1", "SPEAKER_01": "Speaker 2"},
+                    "diarization": {"model": "pyannote/speaker-diarization-community-1"},
+                },
+                "segments": [
+                    {"start": 0.0, "end": 2.0, "text": "Hello there", "speaker": "SPEAKER_00"},
+                    {"start": 2.0, "end": 4.0, "text": "Hi back", "speaker": "SPEAKER_01"},
+                ],
+            }
+        )
+    )
+
+    viewer.display_transcript(str(path))
+    html = viewer._original_edit.toHtml()
+    assert "Speaker 1:" in html
+    assert "Speaker 2:" in html
+    assert "font-weight: 600" in html or "font-weight:600" in html
+
+
+def test_transcript_viewer_no_speaker_labels(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """v1.0 transcript에서 화자 접두사가 표시되지 않는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+
+    path = tmp_path / "no_speaker" / "transcript.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "metadata": {"title": "No Speaker", "duration_seconds": 10, "languages": ["en"]},
+                "segments": [{"start": 0.0, "end": 2.0, "text": "Just text"}],
+            }
+        )
+    )
+
+    viewer.display_transcript(str(path))
+    plain = viewer._original_edit.toPlainText()
+    assert "Just text" in plain
+    assert "Speaker" not in plain
+
+
+def test_transcript_viewer_identify_btn_states(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """recording.wav 존재 여부에 따라 Identify Speakers 버튼 상태가 변하는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+
+    # Without recording.wav -> disabled
+    path = tmp_path / "no_audio" / "transcript.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "metadata": {"title": "No Audio", "duration_seconds": 10, "languages": ["en"]},
+                "segments": [{"start": 0.0, "end": 2.0, "text": "Hi"}],
+            }
+        )
+    )
+    viewer.display_transcript(str(path))
+    assert not viewer._identify_btn.isEnabled()
+
+    # With recording.wav -> enabled
+    path2 = tmp_path / "with_audio" / "transcript.json"
+    path2.parent.mkdir(parents=True)
+    path2.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "metadata": {"title": "Audio", "duration_seconds": 10, "languages": ["en"]},
+                "segments": [{"start": 0.0, "end": 2.0, "text": "Hi"}],
+            }
+        )
+    )
+    (tmp_path / "with_audio" / "recording.wav").write_bytes(b"RIFF" + b"\x00" * 40)
+    viewer.display_transcript(str(path2))
+    assert viewer._identify_btn.isEnabled()
+
+
+def test_transcript_viewer_speaker_panel_visible(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """화자가 있는 transcript에서 화자 패널이 표시되는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+
+    # No speakers -> hidden
+    path1 = tmp_path / "nospeaker" / "transcript.json"
+    path1.parent.mkdir(parents=True)
+    path1.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "metadata": {"title": "NS", "duration_seconds": 10, "languages": ["en"]},
+                "segments": [{"start": 0.0, "end": 2.0, "text": "Hi"}],
+            }
+        )
+    )
+    viewer.display_transcript(str(path1))
+    assert not viewer._speaker_panel.isVisibleTo(viewer)
+
+    # With speakers -> visible
+    path2 = tmp_path / "withspeaker" / "transcript.json"
+    path2.parent.mkdir(parents=True)
+    path2.write_text(
+        json.dumps(
+            {
+                "version": "2.0",
+                "metadata": {
+                    "title": "WS",
+                    "duration_seconds": 10,
+                    "languages": ["en"],
+                    "speakers": {"SPEAKER_00": "Alice"},
+                    "diarization": {},
+                },
+                "segments": [
+                    {"start": 0.0, "end": 2.0, "text": "Hi", "speaker": "SPEAKER_00"},
+                ],
+            }
+        )
+    )
+    viewer.display_transcript(str(path2))
+    assert viewer._speaker_panel.isVisibleTo(viewer)
+
+
+def test_transcript_viewer_identify_btn_label_reidentify(
+    qtbot: object, tmp_path: pathlib.Path
+) -> None:
+    """diarization 메타데이터 존재 시 버튼이 'Re-identify Speakers'로 표시되는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+
+    path = tmp_path / "reidentify" / "transcript.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": "2.0",
+                "metadata": {
+                    "title": "Re-ID",
+                    "duration_seconds": 10,
+                    "languages": ["en"],
+                    "speakers": {"SPEAKER_00": "Speaker 1"},
+                    "diarization": {"model": "pyannote/speaker-diarization-community-1"},
+                },
+                "segments": [
+                    {"start": 0.0, "end": 2.0, "text": "Hi", "speaker": "SPEAKER_00"},
+                ],
+            }
+        )
+    )
+    (tmp_path / "reidentify" / "recording.wav").write_bytes(b"RIFF" + b"\x00" * 40)
+    viewer.display_transcript(str(path))
+    assert viewer._identify_btn.text() == "Re-identify Speakers"
+    assert viewer._identify_btn.isEnabled()
 
 
 def test_transcript_viewer_ai_results(qtbot: object, tmp_path: pathlib.Path) -> None:

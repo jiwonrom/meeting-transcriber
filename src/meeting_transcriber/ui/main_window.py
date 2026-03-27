@@ -164,6 +164,7 @@ class TranscriptViewer(QWidget):
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
         self._current_path: str = ""
+        self._current_transcript: dict[str, Any] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -176,6 +177,20 @@ class TranscriptViewer(QWidget):
         self._meta_label = QLabel("")
         self._meta_label.setObjectName("caption")
         layout.addWidget(self._meta_label)
+
+        # 화자 패널
+        self._speaker_panel = QWidget()
+        self._speaker_layout = QHBoxLayout(self._speaker_panel)
+        self._speaker_layout.setContentsMargins(0, 0, 0, 0)
+        self._speaker_prefix = QLabel("Speakers:")
+        self._speaker_prefix.setObjectName("speaker_list_prefix")
+        speaker_font = self._speaker_prefix.font()
+        speaker_font.setPixelSize(11)
+        self._speaker_prefix.setFont(speaker_font)
+        self._speaker_layout.addWidget(self._speaker_prefix)
+        self._speaker_layout.addStretch()
+        self._speaker_panel.setVisible(False)
+        layout.addWidget(self._speaker_panel)
 
         # 3탭
         self._tabs = QTabWidget()
@@ -220,6 +235,13 @@ class TranscriptViewer(QWidget):
 
         # Export buttons — per D-03, export actions in transcript viewer toolbar
         export_bar = QHBoxLayout()
+
+        # Identify Speakers button (left side)
+        self._identify_btn = QPushButton("Identify Speakers")
+        self._identify_btn.setFixedWidth(160)
+        self._identify_btn.clicked.connect(self._identify_speakers_clicked)
+        export_bar.addWidget(self._identify_btn)
+
         export_bar.addStretch()
 
         self._export_srt_btn = QPushButton("Export SRT")
@@ -258,6 +280,7 @@ class TranscriptViewer(QWidget):
             self._original_edit.setPlainText(f"Failed to load: {e}")
             return
 
+        self._current_transcript = transcript
         metadata = transcript.get("metadata", {})
         self._title_label.setText(metadata.get("title", "Untitled"))
 
@@ -265,10 +288,55 @@ class TranscriptViewer(QWidget):
         langs = ", ".join(metadata.get("languages", []))
         self._meta_label.setText(f"{_fmt_duration(duration)}  {langs}")
 
-        # Tab 0: 원본 세그먼트
+        # Tab 0: 원본 세그먼트 (화자 라벨 포함)
         segments = transcript.get("segments", [])
-        lines = [seg.get("text", "") for seg in segments if seg.get("text")]
-        self._original_edit.setPlainText("\n".join(lines))
+        speakers_map = metadata.get("speakers", {})
+        has_speakers = bool(speakers_map)
+
+        if has_speakers:
+            # 테마에 따른 화자 라벨 색상
+            palette = self.palette()
+            bg_lightness = palette.window().color().lightness()
+            speaker_color = "#6E6E73" if bg_lightness > 128 else "#98989D"
+
+            html_parts = []
+            for seg in segments:
+                text = seg.get("text", "")
+                if not text:
+                    continue
+                speaker = seg.get("speaker", "")
+                display_name = speakers_map.get(speaker, speaker) if speaker else ""
+                if display_name:
+                    html_parts.append(
+                        f'<p style="margin: 0 0 8px 0;">'
+                        f'<span style="color: {speaker_color}; font-weight: 600;">'
+                        f"{display_name}:</span> {text}</p>"
+                    )
+                else:
+                    html_parts.append(f'<p style="margin: 0 0 8px 0;">{text}</p>')
+            self._original_edit.setHtml("".join(html_parts))
+        else:
+            lines = [seg.get("text", "") for seg in segments if seg.get("text")]
+            self._original_edit.setPlainText("\n".join(lines))
+
+        # 화자 패널 업데이트
+        self._update_speaker_panel(segments, speakers_map)
+
+        # Identify Speakers 버튼 상태
+        audio_path = pathlib.Path(path).parent / "recording.wav"
+        if audio_path.exists():
+            if metadata.get("diarization"):
+                self._identify_btn.setText("Re-identify Speakers")
+            else:
+                self._identify_btn.setText("Identify Speakers")
+            self._identify_btn.setEnabled(True)
+            self._identify_btn.setToolTip("")
+        else:
+            self._identify_btn.setText("Identify Speakers")
+            self._identify_btn.setEnabled(False)
+            self._identify_btn.setToolTip(
+                "Audio file not found — cannot identify speakers"
+            )
 
         # Tab 1: 교열
         proofread = metadata.get("proofread", "")
@@ -286,6 +354,101 @@ class TranscriptViewer(QWidget):
             self._keywords_label.setText("Keywords: " + ", ".join(tags))
         else:
             self._keywords_label.setText("")
+
+    def _update_speaker_panel(
+        self,
+        segments: list[dict[str, Any]],
+        speakers_map: dict[str, str],
+    ) -> None:
+        """화자 패널을 업데이트한다.
+
+        Args:
+            segments: 전사 세그먼트 리스트
+            speakers_map: 화자 라벨 -> 표시 이름 딕셔너리
+        """
+        # 기존 화자 라벨 제거 (prefix와 stretch 제외)
+        while self._speaker_layout.count() > 2:
+            item = self._speaker_layout.takeAt(1)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        if not speakers_map:
+            self._speaker_panel.setVisible(False)
+            return
+
+        # 세그먼트에서 고유 화자 추출 (순서 유지)
+        seen: set[str] = set()
+        unique_speakers: list[str] = []
+        for seg in segments:
+            speaker = seg.get("speaker", "")
+            if speaker and speaker not in seen:
+                seen.add(speaker)
+                unique_speakers.append(speaker)
+
+        if not unique_speakers:
+            self._speaker_panel.setVisible(False)
+            return
+
+        display_count = min(len(unique_speakers), 8)
+        for raw_label in unique_speakers[:display_count]:
+            display_name = speakers_map.get(raw_label, raw_label)
+            label = QLabel(display_name)
+            label.setObjectName("speaker_name")
+            label.setCursor(Qt.CursorShape.PointingHandCursor)
+            # 클릭 이벤트를 람다로 연결
+            label.mousePressEvent = lambda _evt, lbl=raw_label: self._on_speaker_clicked(lbl)
+            self._speaker_layout.insertWidget(self._speaker_layout.count() - 1, label)
+
+        if len(unique_speakers) > 8:
+            more = QLabel(f"+{len(unique_speakers) - 8} more")
+            more.setObjectName("caption")
+            self._speaker_layout.insertWidget(self._speaker_layout.count() - 1, more)
+
+        self._speaker_panel.setVisible(True)
+
+    def _on_speaker_clicked(self, raw_label: str) -> None:
+        """화자 이름 클릭 시 이름 변경 다이얼로그를 표시한다.
+
+        Args:
+            raw_label: 화자 원본 라벨
+        """
+        from PyQt6.QtWidgets import QInputDialog
+
+        speakers_map = self._current_transcript.get("metadata", {}).get("speakers", {})
+        current_name = speakers_map.get(raw_label, raw_label)
+
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Rename Speaker",
+            f"Enter name for {current_name}:",
+            text=current_name,
+        )
+        if not ok or new_name == current_name:
+            return
+
+        from meeting_transcriber.core.diarizer import rename_speaker
+
+        self._current_transcript = rename_speaker(self._current_transcript, raw_label, new_name)
+        save_transcript(self._current_transcript, pathlib.Path(self._current_path))
+        self.display_transcript(self._current_path)
+
+    def _identify_speakers_clicked(self) -> None:
+        """Identify Speakers 버튼 클릭 처리."""
+        from meeting_transcriber.utils.keychain import get_api_key
+
+        token = get_api_key("huggingface")
+        if not token:
+            QMessageBox.warning(
+                self,
+                "Token Required",
+                "HuggingFace token required. Add it in Settings > Speaker Identification.",
+            )
+            return
+
+        self._identify_btn.setEnabled(False)
+        self._identify_btn.setText("Identifying speakers...")
+        self.diarization_requested.emit(self._current_path)
 
     def _save_proofread(self) -> None:
         """교열 텍스트를 transcript.json에 저장한다."""
@@ -381,12 +544,16 @@ class TranscriptViewer(QWidget):
     def clear(self) -> None:
         """뷰어 내용을 초기화한다."""
         self._current_path = ""
+        self._current_transcript = {}
         self._title_label.setText("")
         self._meta_label.setText("")
         self._original_edit.clear()
         self._proofread_edit.clear()
         self._summary_edit.clear()
         self._keywords_label.setText("")
+        self._speaker_panel.setVisible(False)
+        self._identify_btn.setText("Identify Speakers")
+        self._identify_btn.setEnabled(False)
 
 
 # ============================================================
