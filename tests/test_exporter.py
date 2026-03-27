@@ -1,4 +1,5 @@
 """exporter 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import pathlib
@@ -109,9 +110,7 @@ def test_export_markdown_without_timestamps() -> None:
 def test_export_markdown_long_duration() -> None:
     """1시간+ transcript의 타임스탬프가 [H:MM:SS] 형식인지 확인."""
     transcript = _sample_transcript()
-    transcript["segments"].append(
-        {"start": 3700.0, "end": 3705.0, "text": "Wrapping up"}
-    )
+    transcript["segments"].append({"start": 3700.0, "end": 3705.0, "text": "Wrapping up"})
     md = export_to_markdown(transcript)
     assert "[1:01:40]" in md
 
@@ -398,3 +397,64 @@ def test_obsidian_filename_sanitization() -> None:
     assert "[" not in fname
     assert "]" not in fname
     assert fname.endswith(".md")
+
+
+# ============================================================
+# Speaker label export 테스트
+# ============================================================
+
+
+def _sample_transcript_with_named_speakers() -> dict:
+    """이름이 지정된 화자가 포함된 테스트용 transcript."""
+    return {
+        "version": "2.0",
+        "metadata": {
+            "title": "Speaker Test",
+            "created_at": "2026-03-27T10:00:00+09:00",
+            "duration_seconds": 10.0,
+            "languages": ["en"],
+            "source": "microphone",
+            "model": "whisper-small",
+            "tags": [],
+            "speakers": {"SPEAKER_00": "Alice", "SPEAKER_01": "Bob"},
+        },
+        "segments": [
+            {"start": 0.0, "end": 3.0, "text": "Hello", "speaker": "Alice"},
+            {"start": 3.0, "end": 6.0, "text": "Hi there", "speaker": "Bob"},
+            {"start": 6.0, "end": 10.0, "text": "How are you", "speaker": "Alice"},
+        ],
+    }
+
+
+def test_srt_speaker_labels_included() -> None:
+    """SRT export에 화자 라벨이 포함되는지 확인."""
+    srt = export_to_srt(_sample_transcript_with_named_speakers())
+    assert "Alice: Hello" in srt
+    assert "Bob: Hi there" in srt
+    assert "Alice: How are you" in srt
+
+
+def test_srt_no_speaker_clean_text() -> None:
+    """speaker 데이터 없는 transcript의 SRT에 빈 접두사 없음 확인."""
+    srt = export_to_srt(_sample_transcript())
+    # No ":" prefix should appear
+    for line in srt.split("\n"):
+        if "Good morning everyone" in line:
+            assert not line.startswith(": ")
+            assert ":" not in line.split("-->")[0] if "-->" not in line else True
+
+
+def test_vtt_speaker_labels_included() -> None:
+    """VTT export에 화자 라벨이 포함되는지 확인."""
+    vtt = export_to_vtt(_sample_transcript_with_named_speakers())
+    assert "Bob: Hi there" in vtt
+    assert "Alice: Hello" in vtt
+
+
+def test_srt_include_speaker_false_omits_labels() -> None:
+    """include_speaker=False 시 화자 라벨이 있어도 생략 확인."""
+    srt = export_to_srt(_sample_transcript_with_named_speakers(), include_speaker=False)
+    assert "Alice:" not in srt
+    assert "Bob:" not in srt
+    assert "Hello" in srt
+    assert "Hi there" in srt
