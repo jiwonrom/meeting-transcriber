@@ -30,7 +30,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can export a transcript to a configured Obsidian vault directory as properly formatted Markdown with frontmatter
   4. User can configure a default export directory in Preferences that persists across app restarts
   5. User can add OpenAI or Anthropic API keys in Preferences and select which provider handles summarization, proofreading, and translation -- with automatic fallback if the primary provider fails
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Export core: SRT/VTT/Obsidian export functions + config defaults
+- [ ] 01-02-PLAN.md — Provider core: OpenAI/Anthropic providers + ProviderManager with fallback
+- [ ] 01-03-PLAN.md — UI wiring: settings dialog extensions + export buttons + ProviderManager integration
+
 **UI hint**: yes
 
 ### Phase 2: System Audio Capture
@@ -87,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Export & Multi-Provider | 0/TBD | Not started | - |
+| 1. Export & Multi-Provider | 0/3 | Planning complete | - |
 | 2. System Audio Capture | 0/TBD | Not started | - |
 | 3. Speaker Diarization | 0/TBD | Not started | - |
 | 4. Meeting Intelligence | 0/TBD | Not started | - |
