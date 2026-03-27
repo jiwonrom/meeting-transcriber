@@ -28,3 +28,7 @@ class ModelDownloadError(MeetingTranscriberError):
 
 class AudioCaptureError(MeetingTranscriberError):
     """오디오 캡처 중 오류 발생 (장치 없음, 권한 거부 등)."""
+
+
+class SystemAudioError(MeetingTranscriberError):
+    """시스템 오디오 설정 오류 (BlackHole 미설치, Aggregate Device 생성 실패 등)."""

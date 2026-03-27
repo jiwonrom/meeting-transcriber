@@ -37,3 +37,8 @@ OVERLAY_MAX_LINES = 5
 
 # 지원 오디오 포맷
 SUPPORTED_AUDIO_FORMATS = (".wav", ".mp3", ".m4a")
+
+# 시스템 오디오 (BlackHole)
+BLACKHOLE_DEVICE_NAMES = ("blackhole 2ch", "blackhole 16ch", "blackhole 64ch")
+AGGREGATE_DEVICE_NAME = "Scribe Audio (Mic + System)"
+AGGREGATE_DEVICE_UID = "com.scribe.aggregate-device"

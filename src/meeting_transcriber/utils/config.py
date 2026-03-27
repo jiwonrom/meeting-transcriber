@@ -22,6 +22,12 @@ def _default_settings() -> dict[str, Any]:
         "audio": {
             "device": None,
             "post_recording": "ask",  # "delete" | "keep" | "ask"
+            "system_audio": {
+                "enabled": False,
+                "blackhole_uid": None,
+                "aggregate_device_uid": None,
+                "mic_device_uid": None,
+            },
         },
         "theme": "system",
     }
