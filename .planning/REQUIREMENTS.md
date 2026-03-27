@@ -28,10 +28,10 @@
 
 ### Speaker Diarization
 
-- [ ] **DIAR-01**: Post-recording diarization assigns speaker labels to transcript segments
-- [ ] **DIAR-02**: Transcript viewer displays speaker labels (color-coded per speaker)
-- [ ] **DIAR-03**: Transcript schema v2.0 supports optional speaker field per segment
-- [ ] **DIAR-04**: SRT/VTT exports include speaker labels when available
+- [x] **DIAR-01**: Post-recording diarization assigns speaker labels to transcript segments
+- [ ] **DIAR-02**: Transcript viewer displays speaker labels (inline text prefix per speaker)
+- [x] **DIAR-03**: Transcript schema v2.0 supports optional speaker field per segment
+- [x] **DIAR-04**: SRT/VTT exports include speaker labels when available
 
 ### Meeting Templates
 
@@ -85,10 +85,10 @@
 | SYSAUD-02 | Phase 2 | Complete |
 | SYSAUD-03 | Phase 2 | Pending |
 | SYSAUD-04 | Phase 2 | Complete |
-| DIAR-01 | Phase 3 | Pending |
+| DIAR-01 | Phase 3 | Complete |
 | DIAR-02 | Phase 3 | Pending |
-| DIAR-03 | Phase 3 | Pending |
-| DIAR-04 | Phase 3 | Pending |
+| DIAR-03 | Phase 3 | Complete |
+| DIAR-04 | Phase 3 | Complete |
 | TPL-01 | Phase 4 | Pending |
 | TPL-02 | Phase 4 | Pending |
 | TPL-03 | Phase 4 | Pending |

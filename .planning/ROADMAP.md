@@ -69,7 +69,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Core backend: DiarizationWorker, temporal alignment, model download manager, schema v2.0, constants/exceptions
+- [x] 03-01-PLAN.md — Core backend: DiarizationWorker, temporal alignment, model download manager, schema v2.0, constants/exceptions
 - [ ] 03-02-PLAN.md — UI integration: audio preservation, auto-diarization, TranscriptViewer speaker labels, Identify Speakers button, speaker rename, Settings HF token
 - [ ] 03-03-PLAN.md — CoreML/ANE optimization: attempt CoreML conversion of pyannote model with CPU fallback gate
 

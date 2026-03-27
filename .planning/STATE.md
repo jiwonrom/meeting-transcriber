@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-27T11:39:21.967Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-27T18:03:26.519Z"
 last_activity: 2026-03-27
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 9
+  completed_plans: 7
   percent: 0
 ---
 
@@ -21,11 +21,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** 실시간 캡션 -- 화면 위 자막으로 회의/강의를 실시간 전사
-**Current focus:** Phase 02 — system-audio-capture
+**Current focus:** Phase 03 — speaker-diarization
 
 ## Current Position
 
-Phase: 02 (system-audio-capture) — EXECUTING
+Phase: 03 (speaker-diarization) — EXECUTING
 Plan: 2 of 3
 Status: Ready to execute
 Last activity: 2026-03-27
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P02 | 4min | 2 tasks | 4 files |
 | Phase 01 P03 | 4min | 3 tasks | 3 files |
 | Phase 02 P01 | 4min | 2 tasks | 8 files |
+| Phase 03 P01 | 5min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Export handlers use lazy imports in TranscriptViewer to avoid circular deps
 - [Phase 02]: Lazy import CoreAudio at function level for optional pyobjc dependency
 - [Phase 02]: Private Aggregate Device (isPrivate=1) for process-scoped lifecycle
+- [Phase 03]: CPU-only for pyannote inference -- MPS sparse tensor bugs (PyTorch #143955)
+- [Phase 03]: Schema v2.0 only written when speakers provided -- v1.0 transcripts never modified on load
+- [Phase 03]: Lazy import helpers (_import_pipeline, _import_torch) for testable pyannote/torch loading
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T11:39:21.964Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-speaker-diarization/03-CONTEXT.md
+Last session: 2026-03-27T18:03:26.516Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
