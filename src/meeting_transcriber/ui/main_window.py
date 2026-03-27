@@ -40,6 +40,7 @@ from meeting_transcriber.storage.transcript_store import (
     create_transcript,
     load_transcript,
     save_transcript,
+    update_transcript_speakers,
 )
 from meeting_transcriber.storage.workspace import WorkspaceManager
 from meeting_transcriber.ui.blackhole_wizard import BlackHoleSetupWizard
@@ -47,7 +48,7 @@ from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.ui.widgets.dual_level_meter import DualLevelMeter
 from meeting_transcriber.ui.widgets.toggle_switch import SystemAudioToggle
 from meeting_transcriber.utils.config import load_settings, save_settings
-from meeting_transcriber.utils.constants import APP_NAME
+from meeting_transcriber.utils.constants import APP_NAME, DIARIZATION_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,8 @@ class RecordingListItem(QWidget):
 class TranscriptViewer(QWidget):
     """transcript.json 내용을 3탭(원본/교열/요약)으로 표시하는 뷰어."""
 
+    diarization_requested = pyqtSignal(str)
+
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
         self._current_path: str = ""
@@ -167,7 +170,7 @@ class TranscriptViewer(QWidget):
 
         # 제목 + 메타
         self._title_label = QLabel("")
-        self._title_label.setFont(QFont("", 18, QFont.Weight.Bold))
+        self._title_label.setFont(QFont("", 17, QFont.Weight.Bold))
         layout.addWidget(self._title_label)
 
         self._meta_label = QLabel("")
@@ -176,7 +179,7 @@ class TranscriptViewer(QWidget):
 
         # 3탭
         self._tabs = QTabWidget()
-        edit_style = "border: none; font-size: 14px;"
+        edit_style = "border: none;"
 
         # Tab 0: 원본
         self._original_edit = QTextEdit()
@@ -516,6 +519,7 @@ class MainWindow(QMainWindow):
         self._audio_worker: AudioCaptureWorker | None = None
         self._transcription_worker: TranscriptionWorkerThread | None = None
         self._ai_worker: Any = None
+        self._diarization_worker: Any = None
         self._chunk_workers: list[ChunkTranscriberThread] = []
         self._realtime_segments: list[dict[str, Any]] = []
         self._chunk_count = 0
@@ -557,9 +561,9 @@ class MainWindow(QMainWindow):
         sidebar_layout.setSpacing(0)
 
         sidebar_header = QLabel("Recordings")
-        sidebar_header.setFont(QFont("", 13, QFont.Weight.Bold))
+        sidebar_header.setFont(QFont("", 14, QFont.Weight.Bold))
         sidebar_header.setFixedHeight(40)
-        sidebar_header.setStyleSheet("padding-left: 16px;")
+        sidebar_header.setObjectName("heading")
         sidebar_layout.addWidget(sidebar_header)
 
         self._recording_list = QListWidget()
@@ -622,11 +626,11 @@ class MainWindow(QMainWindow):
             self._system_audio_toggle, alignment=Qt.AlignmentFlag.AlignCenter
         )
         self._system_audio_label = QLabel("System Audio")
-        self._system_audio_label.setObjectName("caption")
+        self._system_audio_label.setObjectName("system_audio_label")
+        self._system_audio_label.setProperty("state", "idle")
         self._system_audio_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._system_audio_label.setStyleSheet("font-size: 11px;")
         toggle_layout.addWidget(self._system_audio_label)
-        toggle_container.setFixedWidth(60)
+        toggle_container.setFixedWidth(56)
         btn_row.addWidget(toggle_container)
 
         self._record_btn = RecordButton()
@@ -657,10 +661,15 @@ class MainWindow(QMainWindow):
     def _set_status_state(self, state: str) -> None:
         """상태 라벨의 동적 스타일 프로퍼티를 설정하고 QSS를 갱신한다."""
         self._status_label.setProperty("state", state)
-        style = self._status_label.style()
+        self._set_status_state_on(self._status_label)
+
+    @staticmethod
+    def _set_status_state_on(widget: QWidget) -> None:
+        """위젯의 QSS property 변경 후 스타일을 갱신한다."""
+        style = widget.style()
         if style is not None:
-            style.unpolish(self._status_label)
-            style.polish(self._status_label)
+            style.unpolish(widget)
+            style.polish(widget)
 
     def _apply_theme(self) -> None:
         """테마를 적용한다."""
@@ -672,6 +681,9 @@ class MainWindow(QMainWindow):
         self._system_audio_toggle.toggled.connect(self._on_system_audio_toggled)
         self._system_audio_toggle.setup_requested.connect(
             self._on_system_audio_setup_requested
+        )
+        self._transcript_viewer.diarization_requested.connect(
+            self._on_identify_speakers_requested
         )
 
     # -- 시스템 오디오 --
@@ -855,6 +867,10 @@ class MainWindow(QMainWindow):
         self._set_status_state("recording")
         self._record_timer.start()
         self._status_bar.showMessage("Recording...")
+        # 듀얼 소스 녹음 시 System Audio 라벨 강조
+        if self._recording_with_system_audio:
+            self._system_audio_label.setProperty("state", "recording")
+            self._set_status_state_on(self._system_audio_label)
         self.recording_started.emit()
 
     def _on_capture_stopped(self) -> None:
@@ -865,6 +881,9 @@ class MainWindow(QMainWindow):
         self._recording_with_system_audio = False
         self._record_timer.stop()
         self._level_meter.reset()
+        # System Audio 라벨 원래 색상으로 복원
+        self._system_audio_label.setProperty("state", "idle")
+        self._set_status_state_on(self._system_audio_label)
         self._status_label.setText("Processing...")
         self._set_status_state("processing")
         self._status_bar.showMessage("Processing recording...")
@@ -894,8 +913,10 @@ class MainWindow(QMainWindow):
             self._level_meter.set_dual_mode(False)
             self._control_bar.setFixedHeight(72)
             self._status_bar.showMessage(
-                "System audio lost -- continuing with microphone only"
+                "System audio disconnected -- continuing with microphone only"
             )
+            self._system_audio_label.setProperty("state", "idle")
+            self._set_status_state_on(self._system_audio_label)
 
             # Restart AudioCaptureWorker with mic-only device
             settings = load_settings()
@@ -916,6 +937,8 @@ class MainWindow(QMainWindow):
         self._recording_with_system_audio = False
         self._record_timer.stop()
         self._level_meter.reset()
+        self._system_audio_label.setProperty("state", "idle")
+        self._set_status_state_on(self._system_audio_label)
         self._status_label.setText("Error")
         self._set_status_state("error")
         self._status_bar.showMessage(f"Error: {message}")
@@ -988,10 +1011,10 @@ class MainWindow(QMainWindow):
         temp_wav: pathlib.Path,
     ) -> None:
         """전사 완료."""
-        temp_wav.unlink(missing_ok=True)
         self._transcription_worker = None
 
         if isinstance(result, Exception):
+            temp_wav.unlink(missing_ok=True)
             self._status_label.setText("Tap to Record")
             self._set_status_state("idle")
             self._status_bar.showMessage(f"Transcription failed: {result}")
@@ -1020,6 +1043,17 @@ class MainWindow(QMainWindow):
         folder.mkdir(parents=True, exist_ok=True)
         save_transcript(transcript, folder / "transcript.json")
 
+        # 오디오 파일 보존 — diarization에 필요
+        audio_dest = folder / "recording.wav"
+        try:
+            temp_wav.rename(audio_dest)
+        except OSError:
+            # rename 실패 시 (cross-device 등) 복사 후 삭제
+            import shutil
+
+            shutil.copy2(temp_wav, audio_dest)
+            temp_wav.unlink(missing_ok=True)
+
         self._refresh_recording_list()
         self._status_label.setText("Tap to Record")
         self._set_status_state("idle")
@@ -1030,6 +1064,9 @@ class MainWindow(QMainWindow):
 
         # AI 처리 (API 키가 있을 때만)
         self._run_ai_tasks(result, folder / "transcript.json")
+
+        # 자동 화자 분리 (HF 토큰이 있을 때만)
+        self._auto_diarize(audio_dest, result.segments, folder / "transcript.json")
 
     # -- AI 처리 --
 
@@ -1110,6 +1147,118 @@ class MainWindow(QMainWindow):
             self._status_bar.showMessage("AI processing complete")
         except Exception as e:
             self._status_bar.showMessage(f"AI save failed: {e}")
+
+    # -- 화자 분리 --
+
+    def _auto_diarize(
+        self,
+        audio_path: pathlib.Path,
+        segments: list[dict[str, Any]],
+        transcript_path: pathlib.Path,
+    ) -> None:
+        """녹음 완료 후 자동 화자 분리를 실행한다.
+
+        HF 토큰이 없으면 조용히 건너뛴다.
+
+        Args:
+            audio_path: 오디오 파일 경로
+            segments: 전사 세그먼트 리스트
+            transcript_path: transcript.json 경로
+        """
+        from meeting_transcriber.utils.keychain import get_api_key
+
+        token = get_api_key("huggingface")
+        if not token:
+            return
+
+        from meeting_transcriber.core.diarizer import DiarizationWorker
+
+        self._diarization_worker = DiarizationWorker(
+            audio_path, segments, token, parent=self,
+        )
+        self._diarization_worker.progress.connect(
+            lambda msg: self._status_bar.showMessage(msg)
+        )
+        self._diarization_worker.finished.connect(
+            lambda result: self._on_diarization_done(result, transcript_path)
+        )
+        self._diarization_worker.start()
+        self._status_bar.showMessage("Identifying speakers...")
+
+    def _on_diarization_done(
+        self,
+        result: list[dict[str, Any]] | Exception,
+        transcript_path: pathlib.Path,
+    ) -> None:
+        """화자 분리 완료 처리.
+
+        Args:
+            result: 화자 라벨이 포함된 세그먼트 리스트 또는 예외
+            transcript_path: transcript.json 경로
+        """
+        self._diarization_worker = None
+
+        if isinstance(result, Exception):
+            self._status_bar.showMessage(f"Speaker identification failed: {result}")
+            return
+
+        speakers = {
+            seg["speaker"]: seg["speaker"]
+            for seg in result
+            if seg.get("speaker")
+        }
+        diarization_meta = {
+            "model": DIARIZATION_MODEL,
+            "completed_at": datetime.now(tz=UTC).isoformat(),
+        }
+        update_transcript_speakers(transcript_path, result, speakers, diarization_meta)
+        self._status_bar.showMessage("Speakers identified", 3000)
+
+        # 뷰어 새로고침
+        if self._transcript_viewer._current_path == str(transcript_path):
+            self._transcript_viewer.display_transcript(str(transcript_path))
+
+    def _on_identify_speakers_requested(self, transcript_path_str: str) -> None:
+        """수동 화자 분리 요청 처리.
+
+        Args:
+            transcript_path_str: transcript.json 파일 경로 문자열
+        """
+        from meeting_transcriber.utils.keychain import get_api_key
+
+        transcript_path = pathlib.Path(transcript_path_str)
+        audio_path = transcript_path.parent / "recording.wav"
+
+        if not audio_path.exists():
+            self._status_bar.showMessage("Audio file not found — cannot identify speakers")
+            return
+
+        token = get_api_key("huggingface")
+        if not token:
+            self._status_bar.showMessage("HuggingFace token required — add in Settings")
+            return
+
+        try:
+            transcript = load_transcript(transcript_path)
+        except Exception:
+            self._status_bar.showMessage("Failed to load transcript")
+            return
+
+        segments = transcript.get("segments", [])
+
+        from meeting_transcriber.core.diarizer import DiarizationWorker
+
+        self._diarization_worker = DiarizationWorker(
+            audio_path, segments, token, parent=self,
+        )
+        self._diarization_worker.progress.connect(
+            lambda msg: self._status_bar.showMessage(msg)
+        )
+        self._diarization_worker.finished.connect(
+            lambda result: self._on_diarization_done(result, transcript_path)
+        )
+        self._diarization_worker.start()
+        self._status_bar.showMessage("Identifying speakers...")
 
     # -- 프로퍼티 --
 

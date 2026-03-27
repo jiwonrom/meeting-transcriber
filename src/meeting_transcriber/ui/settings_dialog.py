@@ -5,7 +5,8 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QUrl, Qt, pyqtSignal
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -63,6 +64,7 @@ class SettingsDialog(QDialog):
         self._tabs.addTab(self._create_overlay_tab(), "Overlay")
         self._tabs.addTab(self._create_audio_tab(), "Audio")
         self._tabs.addTab(self._create_api_tab(), "API Keys")
+        self._tabs.addTab(self._create_speaker_tab(), "Speaker Identification")
         layout.addWidget(self._tabs)
 
         buttons = QDialogButtonBox(
@@ -171,7 +173,7 @@ class SettingsDialog(QDialog):
 
         # System Audio section
         sys_audio_heading = QLabel("System Audio")
-        sys_audio_heading.setStyleSheet("font-size: 14px; font-weight: 600;")
+        sys_audio_heading.setObjectName("heading")
         audio_layout.addWidget(sys_audio_heading)
 
         # BlackHole status row
@@ -182,11 +184,11 @@ class SettingsDialog(QDialog):
 
         if is_blackhole_installed():
             self._blackhole_status.setText("Installed")
-            self._blackhole_status.setStyleSheet("color: #30D158; font-weight: 600;")
+            self._blackhole_status.setProperty("status", "success")
             self._blackhole_setup_btn.setText("Reconfigure")
         else:
             self._blackhole_status.setText("Not installed")
-            self._blackhole_status.setStyleSheet("color: #98989D;")
+            self._blackhole_status.setObjectName("caption")
             self._blackhole_setup_btn.setText("Set Up")
 
         self._blackhole_setup_btn.clicked.connect(self._open_blackhole_wizard)
@@ -204,10 +206,10 @@ class SettingsDialog(QDialog):
         )
         if agg_uid:
             self._agg_device_label = QLabel(AGGREGATE_DEVICE_NAME)
-            self._agg_device_label.setStyleSheet("color: #98989D;")
+            self._agg_device_label.setObjectName("caption")
         else:
             self._agg_device_label = QLabel("Not configured")
-            self._agg_device_label.setStyleSheet("color: #6E6E73;")
+            self._agg_device_label.setObjectName("caption")
         device_row.addWidget(self._agg_device_label)
         device_row.addStretch()
         audio_layout.addLayout(device_row)
@@ -225,10 +227,13 @@ class SettingsDialog(QDialog):
     def _on_blackhole_setup_done(self) -> None:
         """BlackHole 설치 완료 -- 상태 갱신."""
         self._blackhole_status.setText("Installed")
-        self._blackhole_status.setStyleSheet("color: #30D158; font-weight: 600;")
+        self._blackhole_status.setProperty("status", "success")
+        style = self._blackhole_status.style()
+        if style is not None:
+            style.unpolish(self._blackhole_status)
+            style.polish(self._blackhole_status)
         self._blackhole_setup_btn.setText("Reconfigure")
         self._agg_device_label.setText(AGGREGATE_DEVICE_NAME)
-        self._agg_device_label.setStyleSheet("color: #98989D;")
 
     def _create_api_tab(self) -> QWidget:
         """API Keys 탭."""
@@ -267,6 +272,83 @@ class SettingsDialog(QDialog):
         form.addRow("Default AI Provider:", self._default_provider_combo)
 
         return tab
+
+    def _create_speaker_tab(self) -> QWidget:
+        """Speaker Identification 탭."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        heading = QLabel("Speaker Identification")
+        heading.setFont(QLabel().font())
+        font = heading.font()
+        font.setPixelSize(14)
+        font.setWeight(font.Weight.DemiBold)
+        heading.setFont(font)
+        layout.addWidget(heading)
+
+        info = QLabel(
+            "Required for downloading the speaker identification model. "
+            "Get a token at huggingface.co/settings/tokens"
+        )
+        info.setObjectName("caption")
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        # Token input row
+        token_row = QHBoxLayout()
+        token_label = QLabel("HuggingFace Token")
+        token_row.addWidget(token_label)
+
+        self._hf_token_input = QLineEdit()
+        self._hf_token_input.setObjectName("hf_token_input")
+        self._hf_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self._hf_token_input.setFixedWidth(280)
+        self._hf_token_input.setPlaceholderText("Enter HuggingFace token")
+        token_row.addWidget(self._hf_token_input)
+
+        save_token_btn = QPushButton("Save Token")
+        save_token_btn.setFixedWidth(80)
+        save_token_btn.clicked.connect(self._save_hf_token)
+        token_row.addWidget(save_token_btn)
+        layout.addLayout(token_row)
+
+        # Status label
+        self._hf_status_label = QLabel("Required for speaker identification")
+        self._hf_status_label.setObjectName("caption")
+        layout.addWidget(self._hf_status_label)
+
+        # Get Token button
+        get_token_btn = QPushButton("Get Token")
+        get_token_btn.setFixedWidth(100)
+        get_token_btn.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://huggingface.co/settings/tokens"))
+        )
+        layout.addWidget(get_token_btn)
+
+        layout.addStretch()
+
+        # Load existing token state
+        existing = get_api_key("huggingface")
+        if existing:
+            self._hf_token_input.setPlaceholderText("••••••• (saved)")
+            self._hf_status_label.setText("Token saved")
+
+        return tab
+
+    def _save_hf_token(self) -> None:
+        """HuggingFace 토큰을 Keychain에 저장한다."""
+        token = self._hf_token_input.text().strip()
+        if not token:
+            return
+
+        if not token.startswith("hf_"):
+            self._hf_status_label.setText("Token must start with 'hf_'")
+            return
+
+        store_api_key("huggingface", token)
+        self._hf_token_input.clear()
+        self._hf_token_input.setPlaceholderText("••••••• (saved)")
+        self._hf_status_label.setText("Token saved")
 
     # -- 설정 로드/저장 --
 
