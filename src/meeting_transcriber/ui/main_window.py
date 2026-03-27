@@ -12,6 +12,7 @@ import numpy as np
 from PyQt6.QtCore import QSize, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath
 from PyQt6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -207,6 +208,27 @@ class TranscriptViewer(QWidget):
 
         layout.addWidget(self._tabs)
 
+        # Export buttons — per D-03, export actions in transcript viewer toolbar
+        export_bar = QHBoxLayout()
+        export_bar.addStretch()
+
+        self._export_srt_btn = QPushButton("Export SRT")
+        self._export_srt_btn.setFixedWidth(100)
+        self._export_srt_btn.clicked.connect(self._export_srt)
+        export_bar.addWidget(self._export_srt_btn)
+
+        self._export_vtt_btn = QPushButton("Export VTT")
+        self._export_vtt_btn.setFixedWidth(100)
+        self._export_vtt_btn.clicked.connect(self._export_vtt)
+        export_bar.addWidget(self._export_vtt_btn)
+
+        self._export_obsidian_btn = QPushButton("Export to Obsidian")
+        self._export_obsidian_btn.setFixedWidth(140)
+        self._export_obsidian_btn.clicked.connect(self._export_obsidian)
+        export_bar.addWidget(self._export_obsidian_btn)
+
+        layout.addLayout(export_bar)
+
     def display_transcript(self, path: str) -> None:
         """transcript.json 파일을 3탭에 표시한다."""
         self._current_path = path
@@ -270,6 +292,85 @@ class TranscriptViewer(QWidget):
             save_transcript(transcript, pathlib.Path(self._current_path))
         except Exception:
             logger.warning("Failed to save proofread: %s", self._current_path, exc_info=True)
+
+    def _export_srt(self) -> None:
+        """현재 트랜스크립트를 SRT 형식으로 내보낸다."""
+        if not self._current_path:
+            return
+        from meeting_transcriber.storage.exporter import export_to_srt, save_export
+
+        try:
+            transcript = load_transcript(pathlib.Path(self._current_path))
+        except Exception:
+            return
+
+        content = export_to_srt(transcript)
+        settings = load_settings()
+        default_dir = settings.get("export", {}).get("default_dir", "")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export SRT",
+            str(pathlib.Path(default_dir) / "transcript.srt") if default_dir else "transcript.srt",
+            "SRT Files (*.srt)",
+        )
+        if path:
+            save_export(content, pathlib.Path(path))
+
+    def _export_vtt(self) -> None:
+        """현재 트랜스크립트를 VTT 형식으로 내보낸다."""
+        if not self._current_path:
+            return
+        from meeting_transcriber.storage.exporter import export_to_vtt, save_export
+
+        try:
+            transcript = load_transcript(pathlib.Path(self._current_path))
+        except Exception:
+            return
+
+        content = export_to_vtt(transcript)
+        settings = load_settings()
+        default_dir = settings.get("export", {}).get("default_dir", "")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export VTT",
+            str(pathlib.Path(default_dir) / "transcript.vtt") if default_dir else "transcript.vtt",
+            "VTT Files (*.vtt)",
+        )
+        if path:
+            save_export(content, pathlib.Path(path))
+
+    def _export_obsidian(self) -> None:
+        """현재 트랜스크립트를 Obsidian 형식으로 내보낸다."""
+        if not self._current_path:
+            return
+        from meeting_transcriber.storage.exporter import (
+            export_to_obsidian,
+            obsidian_filename,
+            save_export,
+        )
+
+        try:
+            transcript = load_transcript(pathlib.Path(self._current_path))
+        except Exception:
+            return
+
+        content = export_to_obsidian(transcript)
+        settings = load_settings()
+        vault_path = settings.get("export", {}).get("obsidian_vault", "")
+
+        if not vault_path:
+            vault_path = QFileDialog.getExistingDirectory(
+                self,
+                "Select Obsidian Vault",
+                str(pathlib.Path.home()),
+            )
+            if not vault_path:
+                return
+
+        filename = obsidian_filename(transcript)
+        save_export(content, pathlib.Path(vault_path) / filename)
 
     def clear(self) -> None:
         """뷰어 내용을 초기화한다."""
@@ -837,21 +938,29 @@ class MainWindow(QMainWindow):
         self, result: TranscriptionResult, transcript_path: pathlib.Path
     ) -> None:
         """전사 결과에 AI 처리(교열, 요약, 키워드, 제목)를 실행한다."""
-        from meeting_transcriber.utils.keychain import get_api_key
+        from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+        from meeting_transcriber.ai.tasks import AITaskWorker
 
-        api_key = get_api_key("gemini")
-        if not api_key:
-            return  # API 키 없으면 건너뜀
+        settings = load_settings()
+        manager = ProviderManager()
+
+        try:
+            chain = manager.get_provider_chain(settings)
+        except Exception:
+            return  # 프로바이더 초기화 실패
+
+        if not chain:
+            return  # API 키가 하나도 없음
 
         full_text = " ".join(s.get("text", "") for s in result.segments)
         if not full_text.strip():
             return
 
-        try:
-            from meeting_transcriber.ai.gemini_provider import GeminiProvider
-            from meeting_transcriber.ai.tasks import AITaskWorker
+        # FallbackProvider wraps the full chain — each AI method call
+        # automatically tries the next provider on failure (per D-13, BYOK-04)
+        provider = FallbackProvider(manager, chain)
 
-            provider = GeminiProvider(api_key=api_key)
+        try:
             self._ai_worker = AITaskWorker(
                 provider=provider,
                 text=full_text,
@@ -860,12 +969,29 @@ class MainWindow(QMainWindow):
             self._ai_worker.progress.connect(
                 lambda msg: self._status_bar.showMessage(msg)
             )
+            # After worker finishes, check for fallback messages and display per D-14
             self._ai_worker.finished.connect(
-                lambda ai_result: self._on_ai_done(ai_result, transcript_path)
+                lambda ai_result: self._on_ai_done_with_fallback(
+                    ai_result, transcript_path, provider
+                )
             )
             self._ai_worker.start()
         except Exception as e:
             self._status_bar.showMessage(f"AI processing skipped: {e}")
+
+    def _on_ai_done_with_fallback(
+        self,
+        ai_result: Any,
+        transcript_path: pathlib.Path,
+        provider: Any,
+    ) -> None:
+        """AI 완료 후 폴백 메시지를 상태바에 표시하고 결과를 처리한다."""
+        # Show fallback messages in status bar per D-14
+        if hasattr(provider, "fallback_messages") and provider.fallback_messages:
+            fallback_info = "; ".join(provider.fallback_messages)
+            self._status_bar.showMessage(f"AI complete (fallback: {fallback_info})", 10000)
+        # Delegate to existing handler
+        self._on_ai_done(ai_result, transcript_path)
 
     def _on_ai_done(self, ai_result: Any, transcript_path: pathlib.Path) -> None:
         """AI 처리 완료 — 결과를 transcript에 저장한다."""
