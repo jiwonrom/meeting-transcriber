@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Export core: SRT/VTT/Obsidian export functions + config defaults
 - [x] 01-02-PLAN.md — Provider core: OpenAI/Anthropic providers + ProviderManager with fallback
-- [ ] 01-03-PLAN.md — UI wiring: settings dialog extensions + export buttons + ProviderManager integration
+- [x] 01-03-PLAN.md — UI wiring: settings dialog extensions + export buttons + ProviderManager integration
 
 **UI hint**: yes
 

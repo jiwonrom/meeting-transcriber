@@ -10,12 +10,12 @@
 - [x] **EXP-01**: User can export transcript as SRT subtitle file with proper timestamp formatting
 - [x] **EXP-02**: User can export transcript as VTT subtitle file with proper timestamp formatting
 - [x] **EXP-03**: User can export transcript as Obsidian-compatible Markdown to a configured vault directory
-- [ ] **EXP-04**: User can configure default export directory in Preferences
+- [x] **EXP-04**: User can configure default export directory in Preferences
 
 ### Multi-Provider (BYOK)
 
-- [ ] **BYOK-01**: User can add their own OpenAI API key in Preferences
-- [ ] **BYOK-02**: User can add their own Anthropic API key in Preferences
+- [x] **BYOK-01**: User can add their own OpenAI API key in Preferences
+- [x] **BYOK-02**: User can add their own Anthropic API key in Preferences
 - [x] **BYOK-03**: User can select which AI provider to use for each task (summarize, proofread, translate)
 - [x] **BYOK-04**: App falls back to next provider if primary fails
 
@@ -76,9 +76,9 @@
 | EXP-01 | Phase 1 | Complete |
 | EXP-02 | Phase 1 | Complete |
 | EXP-03 | Phase 1 | Complete |
-| EXP-04 | Phase 1 | Pending |
-| BYOK-01 | Phase 1 | Pending |
-| BYOK-02 | Phase 1 | Pending |
+| EXP-04 | Phase 1 | Complete |
+| BYOK-01 | Phase 1 | Complete |
+| BYOK-02 | Phase 1 | Complete |
 | BYOK-03 | Phase 1 | Complete |
 | BYOK-04 | Phase 1 | Complete |
 | SYSAUD-01 | Phase 2 | Pending |
