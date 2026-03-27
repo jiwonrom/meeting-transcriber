@@ -4,6 +4,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
+from meeting_transcriber.utils.config import invalidate_settings_cache
 
 
 def test_settings_dialog_creation(qtbot: object) -> None:
@@ -31,6 +32,7 @@ def test_settings_dialog_has_tabs(qtbot: object) -> None:
 
 def test_settings_dialog_loads_defaults(qtbot: object) -> None:
     """기본 설정값이 UI에 반영되는지 확인."""
+    invalidate_settings_cache()
     with patch("meeting_transcriber.ui.settings_dialog.get_api_key", return_value=None):
         dialog = SettingsDialog()
         qtbot.addWidget(dialog)  # type: ignore[union-attr]
