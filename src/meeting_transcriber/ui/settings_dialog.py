@@ -1,4 +1,5 @@
 """설정 다이얼로그 — 언어, 모델, 오버레이, 오디오, API 키, 내보내기."""
+
 from __future__ import annotations
 
 import pathlib
@@ -136,9 +137,7 @@ class SettingsDialog(QDialog):
         self._opacity_slider.setRange(10, 100)
         self._opacity_slider.setValue(85)
         self._opacity_label = QLabel("85%")
-        self._opacity_slider.valueChanged.connect(
-            lambda v: self._opacity_label.setText(f"{v}%")
-        )
+        self._opacity_slider.valueChanged.connect(lambda v: self._opacity_label.setText(f"{v}%"))
         form.addRow("Opacity:", self._opacity_slider)
         form.addRow("", self._opacity_label)
 

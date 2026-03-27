@@ -1,4 +1,5 @@
 """메인 윈도우 — Apple Voice Memos 스타일 UI."""
+
 from __future__ import annotations
 
 import json
@@ -269,9 +270,7 @@ class TranscriptViewer(QWidget):
 
         # Tab 2: 요약 + 키워드
         summary = metadata.get("summary", "")
-        self._summary_edit.setPlainText(
-            summary if summary else "(No summary available)"
-        )
+        self._summary_edit.setPlainText(summary if summary else "(No summary available)")
 
         tags = metadata.get("tags", [])
         if tags:
@@ -286,9 +285,7 @@ class TranscriptViewer(QWidget):
 
         try:
             transcript = load_transcript(pathlib.Path(self._current_path))
-            transcript.setdefault("metadata", {})["proofread"] = (
-                self._proofread_edit.toPlainText()
-            )
+            transcript.setdefault("metadata", {})["proofread"] = self._proofread_edit.toPlainText()
             save_transcript(transcript, pathlib.Path(self._current_path))
         except Exception:
             logger.warning("Failed to save proofread: %s", self._current_path, exc_info=True)
@@ -552,9 +549,7 @@ class MainWindow(QMainWindow):
         # 스타일은 ThemeEngine QSS에서 적용
         self._recording_list.currentItemChanged.connect(self._on_recording_selected)
         self._recording_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._recording_list.customContextMenuRequested.connect(
-            self._on_recording_context_menu
-        )
+        self._recording_list.customContextMenuRequested.connect(self._on_recording_context_menu)
         sidebar_layout.addWidget(self._recording_list)
 
         self._splitter.addWidget(sidebar)
@@ -783,7 +778,7 @@ class MainWindow(QMainWindow):
         self._record_seconds = 0
         self._duration_label.setText("00:00")
         self._status_label.setText("Recording...")
-        self._set_status_state( "recording")
+        self._set_status_state("recording")
         self._record_timer.start()
         self._status_bar.showMessage("Recording...")
         self.recording_started.emit()
@@ -795,7 +790,7 @@ class MainWindow(QMainWindow):
         self._record_timer.stop()
         self._level_bar.setValue(0)
         self._status_label.setText("Processing...")
-        self._set_status_state( "processing")
+        self._set_status_state("processing")
         self._status_bar.showMessage("Processing recording...")
         self.recording_stopped.emit()
 
@@ -807,7 +802,7 @@ class MainWindow(QMainWindow):
 
         if len(recording) == 0:
             self._status_label.setText("Tap to Record")
-            self._set_status_state( "idle")
+            self._set_status_state("idle")
             self._status_bar.showMessage("No audio recorded")
             return
 
@@ -820,7 +815,7 @@ class MainWindow(QMainWindow):
         self._record_timer.stop()
         self._level_bar.setValue(0)
         self._status_label.setText("Error")
-        self._set_status_state( "error")
+        self._set_status_state("error")
         self._status_bar.showMessage(f"Error: {message}")
 
     def _on_level_changed(self, level: float) -> None:
@@ -875,9 +870,7 @@ class MainWindow(QMainWindow):
             model_name=model,
             language=language,
         )
-        self._transcription_worker.progress.connect(
-            lambda msg: self._status_bar.showMessage(msg)
-        )
+        self._transcription_worker.progress.connect(lambda msg: self._status_bar.showMessage(msg))
         self._transcription_worker.finished.connect(
             lambda result: self._on_transcription_done(result, temp_wav)
         )
@@ -894,7 +887,7 @@ class MainWindow(QMainWindow):
 
         if isinstance(result, Exception):
             self._status_label.setText("Tap to Record")
-            self._set_status_state( "idle")
+            self._set_status_state("idle")
             self._status_bar.showMessage(f"Transcription failed: {result}")
             return
 
@@ -923,7 +916,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_recording_list()
         self._status_label.setText("Tap to Record")
-        self._set_status_state( "idle")
+        self._set_status_state("idle")
         self._status_bar.showMessage(f"Saved: {now}")
 
         for seg in result.segments:
@@ -934,9 +927,7 @@ class MainWindow(QMainWindow):
 
     # -- AI 처리 --
 
-    def _run_ai_tasks(
-        self, result: TranscriptionResult, transcript_path: pathlib.Path
-    ) -> None:
+    def _run_ai_tasks(self, result: TranscriptionResult, transcript_path: pathlib.Path) -> None:
         """전사 결과에 AI 처리(교열, 요약, 키워드, 제목)를 실행한다."""
         from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
         from meeting_transcriber.ai.tasks import AITaskWorker
@@ -966,9 +957,7 @@ class MainWindow(QMainWindow):
                 text=full_text,
                 language=result.language,
             )
-            self._ai_worker.progress.connect(
-                lambda msg: self._status_bar.showMessage(msg)
-            )
+            self._ai_worker.progress.connect(lambda msg: self._status_bar.showMessage(msg))
             # After worker finishes, check for fallback messages and display per D-14
             self._ai_worker.finished.connect(
                 lambda ai_result: self._on_ai_done_with_fallback(

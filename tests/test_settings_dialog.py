@@ -56,14 +56,17 @@ def test_settings_dialog_save(qtbot: object) -> None:
         assert saved["overlay"]["font_size"] == 24
 
 
-def test_settings_dialog_save_api_key(qtbot: object) -> None:
+def test_settings_dialog_save_api_keys(qtbot: object) -> None:
     """API 키 저장이 Keychain을 사용하는지 확인."""
     with patch("meeting_transcriber.ui.settings_dialog.get_api_key", return_value=None):
         dialog = SettingsDialog()
         qtbot.addWidget(dialog)  # type: ignore[union-attr]
 
-    dialog._gemini_key_input.setText("test-api-key")
+    dialog._gemini_key_input.setText("test-gemini-key")
+    dialog._openai_key_input.setText("test-openai-key")
 
     with patch("meeting_transcriber.ui.settings_dialog.store_api_key") as mock_store:
-        dialog._save_api_key()
-        mock_store.assert_called_once_with("gemini", "test-api-key")
+        dialog._save_api_keys()
+        assert mock_store.call_count == 2
+        mock_store.assert_any_call("gemini", "test-gemini-key")
+        mock_store.assert_any_call("openai", "test-openai-key")
