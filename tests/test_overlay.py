@@ -59,12 +59,12 @@ def test_overlay_creation(qtbot: object) -> None:
     assert flags & Qt.WindowType.Tool
 
 
-def test_overlay_fixed_size(qtbot: object) -> None:
-    """오버레이가 고정 크기(600x80)인지 확인."""
+def test_overlay_size(qtbot: object) -> None:
+    """오버레이가 올바른 크기 범위인지 확인."""
     overlay = OverlayWidget()
     qtbot.addWidget(overlay)  # type: ignore[union-attr]
     assert overlay.width() == 600
-    assert overlay.height() == 80
+    assert 48 <= overlay.height() <= 120
 
 
 def test_overlay_update_caption(qtbot: object) -> None:
@@ -174,3 +174,36 @@ def test_overlay_max_lines_change(qtbot: object) -> None:
     overlay.set_max_lines(2)
     lines = overlay.get_caption_text().split("\n")
     assert len(lines) == 2
+
+
+def test_overlay_apply_settings(qtbot: object) -> None:
+    """apply_settings가 오버레이 속성을 업데이트하는지 확인."""
+    overlay = OverlayWidget(max_lines=2, font_size=15, opacity=0.8)
+    qtbot.addWidget(overlay)  # type: ignore[union-attr]
+
+    overlay.apply_settings({
+        "overlay": {"lines": 4, "font_size": 22, "opacity": 0.6}
+    })
+    assert overlay._max_lines == 4
+    assert overlay._font_size == 22
+    assert abs(overlay._bg_opacity - 0.6) < 0.01
+
+
+def test_overlay_drag_pos_init(qtbot: object) -> None:
+    """드래그 상태가 초기에 None인지 확인."""
+    overlay = OverlayWidget()
+    qtbot.addWidget(overlay)  # type: ignore[union-attr]
+    assert overlay._drag_pos is None
+
+
+def test_overlay_dynamic_height(qtbot: object) -> None:
+    """줄 수에 따라 높이가 동적으로 변하는지 확인."""
+    overlay = OverlayWidget(max_lines=5, font_size=15)
+    qtbot.addWidget(overlay)  # type: ignore[union-attr]
+
+    h0 = overlay.height()
+    overlay.append_caption("Line 1")
+    overlay.append_caption("Line 2")
+    overlay.append_caption("Line 3")
+    h3 = overlay.height()
+    assert h3 >= h0

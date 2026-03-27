@@ -162,6 +162,23 @@ class WorkspaceManager:
 
         shutil.rmtree(folder_path)
 
+    def delete_recording(self, transcript_path: pathlib.Path) -> None:
+        """녹음 디렉토리를 삭제한다.
+
+        Args:
+            transcript_path: transcript.json 파일 경로
+
+        Raises:
+            ValueError: 워크스페이스 외부 경로일 때
+            FileNotFoundError: 디렉토리가 존재하지 않을 때
+        """
+        recording_dir = transcript_path.parent
+        if not recording_dir.is_relative_to(self._root):
+            raise ValueError("Path is outside workspace")
+        if not recording_dir.is_dir():
+            raise FileNotFoundError(f"Recording not found: {recording_dir}")
+        shutil.rmtree(recording_dir)
+
     def ensure_default_folders(self) -> None:
         """기본 폴더(Work, Personal)가 없으면 생성한다."""
         for name in ("Work", "Personal"):

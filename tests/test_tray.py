@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from meeting_transcriber.ui.tray import TrayIcon, _create_tray_icon
+from meeting_transcriber.utils.constants import APP_NAME
 
 
 def test_create_tray_icon_idle() -> None:
@@ -19,7 +20,7 @@ def test_create_tray_icon_recording() -> None:
 def test_tray_creation(qtbot: object) -> None:
     """트레이 아이콘이 정상 생성되는지 확인."""
     tray = TrayIcon()
-    assert tray.toolTip() == "Meeting Transcriber"
+    assert tray.toolTip() == APP_NAME
     assert not tray.is_recording
 
 
@@ -31,8 +32,8 @@ def test_tray_menu_items(qtbot: object) -> None:
     texts = [a.text() for a in actions if not a.isSeparator()]
 
     assert "Start Recording" in texts
-    assert "Show Window" in texts
-    assert "Toggle Overlay" in texts
+    assert f"Show {APP_NAME}" in texts
+    assert "Show/Hide Overlay" in texts
     assert "Quit" in texts
 
 

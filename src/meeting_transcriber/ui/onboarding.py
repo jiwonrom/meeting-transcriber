@@ -106,7 +106,7 @@ class OnboardingWizard(QDialog):
         layout = QVBoxLayout(page)
         layout.setSpacing(16)
 
-        title = QLabel("Welcome to Meeting Transcriber")
+        title = QLabel(f"Welcome to {APP_NAME}")
         title.setStyleSheet("font-size: 22px; font-weight: bold;")
         layout.addWidget(title)
 
@@ -173,7 +173,7 @@ class OnboardingWizard(QDialog):
         layout.addWidget(title)
 
         info = QLabel(
-            "Meeting Transcriber needs microphone access to capture audio.\n\n"
+            f"{APP_NAME} needs microphone access to capture audio.\n\n"
             "When prompted, please allow microphone access.\n"
             "You can change this later in System Settings."
         )

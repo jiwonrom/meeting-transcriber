@@ -57,9 +57,16 @@
     "itemHeight": 56,
     "iconSize": 16
   },
+  "controlBar": {
+    "height": 72,
+    "buttonSize": 56,
+    "levelBarHeight": 4
+  },
   "overlay": {
     "maxLines": 2,
     "padding": 16,
-    "opacity": 0.94
+    "opacity": 0.94,
+    "minHeight": 48,
+    "maxHeight": 120
   }
 }

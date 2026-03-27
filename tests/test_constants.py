@@ -23,8 +23,8 @@ from meeting_transcriber.utils.constants import (
 
 def test_app_metadata() -> None:
     """앱 이름과 버전이 올바른지 확인."""
-    assert APP_NAME == "Meeting Transcriber"
-    assert APP_VERSION == "1.0.0"
+    assert APP_NAME == "Scribe"
+    assert APP_VERSION == "1.5.0"
 
 
 def test_workspace_paths() -> None:

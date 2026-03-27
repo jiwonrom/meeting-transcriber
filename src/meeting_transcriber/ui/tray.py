@@ -70,11 +70,11 @@ class TrayIcon(QSystemTrayIcon):
 
         self._menu.addSeparator()
 
-        self._show_window_action = QAction("Show Window", self)
+        self._show_window_action = QAction(f"Show {APP_NAME}", self)
         self._show_window_action.triggered.connect(self.show_window_requested.emit)
         self._menu.addAction(self._show_window_action)
 
-        self._overlay_action = QAction("Toggle Overlay", self)
+        self._overlay_action = QAction("Show/Hide Overlay", self)
         self._overlay_action.triggered.connect(self.overlay_toggle_requested.emit)
         self._menu.addAction(self._overlay_action)
 

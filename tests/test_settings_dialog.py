@@ -12,7 +12,7 @@ def test_settings_dialog_creation(qtbot: object) -> None:
         dialog = SettingsDialog()
         qtbot.addWidget(dialog)  # type: ignore[union-attr]
 
-    assert dialog.windowTitle() == "Settings"
+    assert dialog.windowTitle() == "Preferences"
 
 
 def test_settings_dialog_has_tabs(qtbot: object) -> None:

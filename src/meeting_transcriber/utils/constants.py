@@ -4,8 +4,8 @@ from __future__ import annotations
 import pathlib
 
 # 앱 기본 정보
-APP_NAME = "Meeting Transcriber"
-APP_VERSION = "1.0.0"
+APP_NAME = "Scribe"
+APP_VERSION = "1.5.0"
 
 # 저장 경로
 DEFAULT_WORKSPACE_DIR = pathlib.Path.home() / ".meeting_transcriber"

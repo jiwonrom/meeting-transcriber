@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -36,9 +36,11 @@ class SettingsDialog(QDialog):
     General, Overlay, Audio, API Keys 4개 탭으로 구성된다.
     """
 
+    settings_changed = pyqtSignal(dict)
+
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Settings")
+        self.setWindowTitle("Preferences")
         self.setMinimumSize(450, 400)
 
         self._settings = load_settings()
@@ -216,6 +218,7 @@ class SettingsDialog(QDialog):
         s["audio"]["post_recording"] = self._post_recording_combo.currentData()
 
         save_settings(s)
+        self.settings_changed.emit(s)
         self.accept()
 
     def _save_api_key(self) -> None:

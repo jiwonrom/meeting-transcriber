@@ -16,6 +16,8 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSplitter,
@@ -49,7 +51,7 @@ class RecordButton(QPushButton):
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
         self._recording = False
-        self.setFixedSize(64, 64)
+        self.setFixedSize(56, 56)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("border: none; background: transparent;")
 
@@ -69,7 +71,7 @@ class RecordButton(QPushButton):
 
         if self._recording:
             # 정지 아이콘: 둥근 사각형
-            size = 22
+            size = 18
             x = (self.width() - size) // 2
             y = (self.height() - size) // 2
             path = QPainterPath()
@@ -77,7 +79,7 @@ class RecordButton(QPushButton):
             painter.fillPath(path, red)
         else:
             # 녹음 아이콘: 큰 원
-            size = 48
+            size = 40
             x = (self.width() - size) // 2
             y = (self.height() - size) // 2
             painter.drawEllipse(x, y, size, size)
@@ -85,7 +87,7 @@ class RecordButton(QPushButton):
         # 외부 링
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QColor(255, 255, 255, 38))  # border.emphasis rgba
-        ring_size = 60
+        ring_size = 52
         rx = (self.width() - ring_size) // 2
         ry = (self.height() - ring_size) // 2
         painter.drawEllipse(rx, ry, ring_size, ring_size)
@@ -424,7 +426,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
 
-        sidebar_header = QLabel("  Recordings")
+        sidebar_header = QLabel("Recordings")
         sidebar_header.setFont(QFont("", 13, QFont.Weight.Bold))
         sidebar_header.setFixedHeight(40)
         sidebar_header.setStyleSheet("padding-left: 16px;")
@@ -433,6 +435,10 @@ class MainWindow(QMainWindow):
         self._recording_list = QListWidget()
         # 스타일은 ThemeEngine QSS에서 적용
         self._recording_list.currentItemChanged.connect(self._on_recording_selected)
+        self._recording_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._recording_list.customContextMenuRequested.connect(
+            self._on_recording_context_menu
+        )
         sidebar_layout.addWidget(self._recording_list)
 
         self._splitter.addWidget(sidebar)
@@ -456,9 +462,9 @@ class MainWindow(QMainWindow):
 
         # 하단: 녹음 컨트롤 바
         self._control_bar = QWidget()
-        self._control_bar.setFixedHeight(90)
+        self._control_bar.setFixedHeight(72)
         bar_layout = QVBoxLayout(self._control_bar)
-        bar_layout.setContentsMargins(0, 8, 0, 8)
+        bar_layout.setContentsMargins(0, 6, 0, 6)
         bar_layout.setSpacing(4)
 
         # 레벨 바
@@ -476,7 +482,7 @@ class MainWindow(QMainWindow):
         btn_row.setSpacing(16)
 
         self._duration_label = QLabel("00:00")
-        self._duration_label.setFixedWidth(60)
+        self._duration_label.setFixedWidth(50)
         self._duration_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
@@ -487,8 +493,8 @@ class MainWindow(QMainWindow):
         self._record_btn.clicked.connect(self._on_record_btn_clicked)
         btn_row.addWidget(self._record_btn)
 
-        self._status_label = QLabel("Tap to Record")
-        self._status_label.setFixedWidth(120)
+        self._status_label = QLabel("Ready")
+        self._status_label.setFixedWidth(100)
         self._status_label.setObjectName("caption")
         btn_row.addWidget(self._status_label)
 
@@ -564,6 +570,48 @@ class MainWindow(QMainWindow):
             self._empty_state.hide()
             self._transcript_viewer.show()
             self._transcript_viewer.display_transcript(path)
+
+    # -- 녹음 삭제 --
+
+    def _on_recording_context_menu(self, pos: Any) -> None:
+        """녹음 리스트 우클릭 컨텍스트 메뉴를 표시한다."""
+        item = self._recording_list.itemAt(pos)
+        if item is None:
+            return
+
+        menu = QMenu(self)
+        delete_action = menu.addAction("Delete")
+        chosen = menu.exec(self._recording_list.mapToGlobal(pos))
+        if chosen == delete_action:
+            self._delete_recording(item)
+
+    def _delete_recording(self, item: QListWidgetItem) -> None:
+        """녹음을 삭제한다."""
+        path_str = item.data(Qt.ItemDataRole.UserRole)
+        if not path_str:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Recording",
+            "Are you sure you want to delete this recording?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self._workspace.delete_recording(pathlib.Path(path_str))
+        except (ValueError, FileNotFoundError, OSError):
+            self._status_bar.showMessage("Failed to delete recording", 3000)
+            return
+
+        self._transcript_viewer.clear()
+        self._transcript_viewer.hide()
+        self._empty_state.show()
+        self._refresh_recording_list()
+        self._status_bar.showMessage("Recording deleted", 2000)
 
     # -- 녹음 컨트롤 --
 

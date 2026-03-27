@@ -160,6 +160,38 @@ def test_folder_info_transcript_count(workspace: WorkspaceManager) -> None:
     assert count_test.transcript_count == 1
 
 
+def test_delete_recording(workspace: WorkspaceManager) -> None:
+    """녹음 디렉토리가 삭제되는지 확인."""
+    folder = workspace.create_folder("Work")
+    recording = folder / "rec-001"
+    recording.mkdir()
+    transcript = recording / "transcript.json"
+    transcript.write_text("{}")
+
+    workspace.delete_recording(transcript)
+    assert not recording.exists()
+
+
+def test_delete_recording_outside_workspace(tmp_path: pathlib.Path) -> None:
+    """워크스페이스 외부 경로에 ValueError를 발생시키는지 확인."""
+    ws_dir = tmp_path / "workspace"
+    ws_dir.mkdir()
+    ws = WorkspaceManager(workspace_dir=ws_dir)
+
+    outside = tmp_path / "elsewhere" / "transcript.json"
+    outside.parent.mkdir(parents=True)
+    outside.write_text("{}")
+    with pytest.raises(ValueError, match="outside workspace"):
+        ws.delete_recording(outside)
+
+
+def test_delete_recording_not_found(workspace: WorkspaceManager) -> None:
+    """존재하지 않는 녹음 삭제 시 FileNotFoundError."""
+    fake_path = workspace.root / "Work" / "ghost" / "transcript.json"
+    with pytest.raises(FileNotFoundError):
+        workspace.delete_recording(fake_path)
+
+
 def test_ignored_dirs_not_listed(workspace: WorkspaceManager) -> None:
     """models 등 예약 디렉토리가 목록에 나타나지 않는지 확인."""
     (workspace.root / "models").mkdir(exist_ok=True)

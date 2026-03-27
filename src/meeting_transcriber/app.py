@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import sys
 
 os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
 
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import QApplication, QDialog
 
 from meeting_transcriber.core.model_manager import is_model_downloaded
@@ -26,6 +27,11 @@ def main() -> None:
     app.setApplicationName("Meeting Transcriber")
     app.setApplicationDisplayName("Meeting Transcriber")
     app.setQuitOnLastWindowClosed(False)
+
+    # 앱 아이콘
+    icon_path = pathlib.Path(__file__).parent.parent.parent / "resources" / "AppIcon.icns"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     # 첫 실행 온보딩
     if not is_model_downloaded("small"):
@@ -69,15 +75,21 @@ def main() -> None:
 
     file_menu.addSeparator()
 
-    settings_action = QAction("Settings...", window)
+    settings_action = QAction("Preferences...", window)
     settings_action.setShortcut("Ctrl+,")
-    settings_action.triggered.connect(lambda: SettingsDialog(window).exec())
+
+    def _open_settings() -> None:
+        dlg = SettingsDialog(window)
+        dlg.settings_changed.connect(overlay.apply_settings)
+        dlg.exec()
+
+    settings_action.triggered.connect(_open_settings)
     file_menu.addAction(settings_action)
 
     view_menu = menubar.addMenu("View")
     assert view_menu is not None
 
-    toggle_overlay = QAction("Toggle Overlay", window)
+    toggle_overlay = QAction("Show/Hide Overlay", window)
     toggle_overlay.setShortcut("Ctrl+Shift+C")
     toggle_overlay.triggered.connect(overlay.toggle_visibility)
     view_menu.addAction(toggle_overlay)
