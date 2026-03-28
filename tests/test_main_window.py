@@ -465,3 +465,96 @@ def test_transcript_viewer_ai_results(qtbot: object, tmp_path: pathlib.Path) -> 
     assert "Let us begin" in viewer._proofread_edit.toPlainText()
     assert "roadmap" in viewer._summary_edit.toPlainText()
     assert "meeting" in viewer._keywords_label.text()
+
+
+def test_template_combo_exists(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """template_combo 위젯이 MainWindow에 존재하고 올바른 objectName을 가지는지 확인."""
+    ws = WorkspaceManager(workspace_dir=tmp_path)
+    window = MainWindow(workspace=ws)
+    qtbot.addWidget(window)  # type: ignore[union-attr]
+
+    assert window._template_combo.objectName() == "template_combo"
+    assert window._template_combo.count() >= 5  # 5개 빌트인 템플릿
+
+
+def test_rerun_template_combo_exists(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """rerun_template_combo 위젯이 TranscriptViewer에 존재하는지 확인."""
+    ws = WorkspaceManager(workspace_dir=tmp_path)
+    window = MainWindow(workspace=ws)
+    qtbot.addWidget(window)  # type: ignore[union-attr]
+
+    combo = window._transcript_viewer._rerun_template_combo
+    assert combo.objectName() == "rerun_template_combo"
+    assert combo.count() >= 5
+
+
+def test_template_combos_different_names(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """두 템플릿 콤보의 objectName이 다른지 확인."""
+    ws = WorkspaceManager(workspace_dir=tmp_path)
+    window = MainWindow(workspace=ws)
+    qtbot.addWidget(window)  # type: ignore[union-attr]
+
+    assert (
+        window._template_combo.objectName()
+        != window._transcript_viewer._rerun_template_combo.objectName()
+    )
+
+
+def test_get_selected_template_key(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """기본 템플릿 키가 'general'인지 확인."""
+    ws = WorkspaceManager(workspace_dir=tmp_path)
+    window = MainWindow(workspace=ws)
+    qtbot.addWidget(window)  # type: ignore[union-attr]
+
+    assert window._get_selected_template_key() == "general"
+
+
+def test_suggest_template(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """suggest_template이 템플릿 콤보 선택을 변경하는지 확인."""
+    ws = WorkspaceManager(workspace_dir=tmp_path)
+    window = MainWindow(workspace=ws)
+    qtbot.addWidget(window)  # type: ignore[union-attr]
+
+    window.suggest_template("team_meeting")
+    assert window._get_selected_template_key() == "team_meeting"
+
+
+def test_structured_summary_display(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """구조화 dict 요약이 HTML로 표시되는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+
+    path = tmp_path / "structured" / "transcript.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "metadata": {
+                    "title": "Structured Test",
+                    "duration_seconds": 60,
+                    "languages": ["en"],
+                    "summary": {
+                        "decisions": ["Use React for frontend"],
+                        "action_items": ["Alice: set up repo"],
+                    },
+                    "summary_template": "team_meeting",
+                },
+                "segments": [{"start": 0.0, "end": 2.0, "text": "Hello"}],
+            }
+        )
+    )
+
+    viewer.display_transcript(str(path))
+    html = viewer._summary_edit.toHtml()
+    assert "Decisions" in html
+    assert "Action Items" in html
+    assert "Use React for frontend" in html
+
+
+def test_rerun_ai_btn_exists(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """Re-run AI 버튼이 TranscriptViewer에 존재하는지 확인."""
+    viewer = TranscriptViewer()
+    qtbot.addWidget(viewer)  # type: ignore[union-attr]
+    assert viewer._rerun_ai_btn.objectName() == "rerun_ai_btn"
+    assert not viewer._rerun_ai_btn.isEnabled()  # 초기에 비활성

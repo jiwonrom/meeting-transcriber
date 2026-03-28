@@ -13,6 +13,7 @@ import numpy as np
 from PyQt6.QtCore import QSize, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -48,7 +49,13 @@ from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.ui.widgets.dual_level_meter import DualLevelMeter
 from meeting_transcriber.ui.widgets.toggle_switch import SystemAudioToggle
 from meeting_transcriber.utils.config import load_settings, save_settings
-from meeting_transcriber.utils.constants import APP_NAME, DIARIZATION_MODEL
+from meeting_transcriber.ai.templates import TemplateManager
+from meeting_transcriber.utils.constants import (
+    APP_NAME,
+    BUILTIN_TEMPLATE_NAMES,
+    DEFAULT_TEMPLATE,
+    DIARIZATION_MODEL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +167,7 @@ class TranscriptViewer(QWidget):
     """transcript.json 내용을 3탭(원본/교열/요약)으로 표시하는 뷰어."""
 
     diarization_requested = pyqtSignal(str)
+    rerun_ai_requested = pyqtSignal(str, str)  # (transcript_path, template_key)
 
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
@@ -229,6 +237,24 @@ class TranscriptViewer(QWidget):
         self._keywords_label.setWordWrap(True)
         self._keywords_label.setObjectName("accent")
         summary_layout.addWidget(self._keywords_label)
+
+        # Re-run AI 버튼 + 템플릿 콤보
+        rerun_row = QHBoxLayout()
+        self._rerun_ai_btn = QPushButton("Re-run AI")
+        self._rerun_ai_btn.setObjectName("rerun_ai_btn")
+        self._rerun_ai_btn.setFixedWidth(120)
+        self._rerun_ai_btn.setEnabled(False)
+        self._rerun_ai_btn.clicked.connect(self._on_rerun_ai_clicked)
+        rerun_row.addWidget(self._rerun_ai_btn)
+
+        self._rerun_template_combo = QComboBox()
+        self._rerun_template_combo.setObjectName("rerun_template_combo")
+        self._rerun_template_combo.setFixedWidth(140)
+        rerun_row.addWidget(self._rerun_template_combo)
+
+        rerun_row.addStretch()
+        summary_layout.addLayout(rerun_row)
+
         self._tabs.addTab(summary_widget, "Summary")
 
         layout.addWidget(self._tabs)
@@ -347,7 +373,41 @@ class TranscriptViewer(QWidget):
 
         # Tab 2: 요약 + 키워드
         summary = metadata.get("summary", "")
-        self._summary_edit.setPlainText(summary if summary else "(No summary available)")
+        if isinstance(summary, dict):
+            # 구조화 템플릿 요약 — HTML 렌더링
+            # Inline styles required: QTextEdit HTML ignores QSS, only respects inline CSS.
+            # Values match design tokens: font-size 14px (text.body), weight 600 (heading).
+            html_parts: list[str] = []
+            for section_key, items in summary.items():
+                label = section_key.replace("_", " ").title()
+                html_parts.append(
+                    f'<h3 style="font-size: 14px; font-weight: 600; '
+                    f'margin-top: 16px; margin-bottom: 8px;">'
+                    f"{label}</h3>"
+                )
+                if isinstance(items, list):
+                    html_parts.append('<ul style="margin: 0; padding-left: 20px;">')
+                    for item in items:
+                        html_parts.append(
+                            f'<li style="font-size: 14px; margin-bottom: 4px;">'
+                            f"{item}</li>"
+                        )
+                    html_parts.append("</ul>")
+                else:
+                    html_parts.append(f'<p style="font-size: 14px;">{items}</p>')
+            self._summary_edit.setHtml("".join(html_parts))
+        elif summary:
+            self._summary_edit.setPlainText(summary)
+        else:
+            self._summary_edit.setPlainText("(No summary available)")
+
+        # Re-run AI 버튼 활성화 (transcript가 있으면)
+        has_transcript_text = bool(segments)
+        self._rerun_ai_btn.setEnabled(has_transcript_text)
+        if not summary and has_transcript_text:
+            self._rerun_ai_btn.setText("Run AI")
+        else:
+            self._rerun_ai_btn.setText("Re-run AI")
 
         tags = metadata.get("tags", [])
         if tags:
@@ -449,6 +509,16 @@ class TranscriptViewer(QWidget):
         self._identify_btn.setEnabled(False)
         self._identify_btn.setText("Identifying speakers...")
         self.diarization_requested.emit(self._current_path)
+
+    def _on_rerun_ai_clicked(self) -> None:
+        """Re-run AI 버튼 클릭 처리. 선택된 템플릿으로 요약을 재생성한다."""
+        template_key = self._rerun_template_combo.currentData()
+        if not template_key or not self._current_path:
+            return
+        self._rerun_ai_btn.setEnabled(False)
+        self._rerun_ai_btn.setText("Running AI...")
+        # MainWindow에서 처리하도록 시그널 emit
+        self.rerun_ai_requested.emit(self._current_path, template_key)
 
     def _save_proofread(self) -> None:
         """교열 텍스트를 transcript.json에 저장한다."""
@@ -554,6 +624,8 @@ class TranscriptViewer(QWidget):
         self._speaker_panel.setVisible(False)
         self._identify_btn.setText("Identify Speakers")
         self._identify_btn.setEnabled(False)
+        self._rerun_ai_btn.setText("Re-run AI")
+        self._rerun_ai_btn.setEnabled(False)
 
 
 # ============================================================
@@ -700,6 +772,12 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._refresh_recording_list()
 
+        # 템플릿 관리자 초기화
+        self._template_manager = TemplateManager()
+        self._template_manager.ensure_templates()
+        self._template_manager.load_all()
+        self._populate_template_combos()
+
         # System audio state init
         self._recording_with_system_audio = False
         blackhole_ok = is_blackhole_installed()
@@ -800,6 +878,12 @@ class MainWindow(QMainWindow):
         toggle_container.setFixedWidth(56)
         btn_row.addWidget(toggle_container)
 
+        # 템플릿 선택 콤보
+        self._template_combo = QComboBox()
+        self._template_combo.setObjectName("template_combo")
+        self._template_combo.setFixedWidth(140)
+        btn_row.addWidget(self._template_combo)
+
         self._record_btn = RecordButton()
         self._record_btn.clicked.connect(self._on_record_btn_clicked)
         btn_row.addWidget(self._record_btn)
@@ -824,6 +908,61 @@ class MainWindow(QMainWindow):
         # 상태바
         self._status_bar = QStatusBar()
         self.setStatusBar(self._status_bar)
+
+    def _populate_template_combos(self) -> None:
+        """템플릿 콤보박스를 채운다.
+
+        빌트인 템플릿을 순서대로, 커스텀 템플릿은 알파벳순으로 추가한다.
+        """
+        templates = self._template_manager.load_all()
+
+        for combo in (self._template_combo, self._transcript_viewer._rerun_template_combo):
+            combo.clear()
+            # 빌트인 먼저 (정해진 순서)
+            for key in BUILTIN_TEMPLATE_NAMES:
+                tmpl = templates.get(key)
+                if tmpl:
+                    combo.addItem(tmpl.name, key)
+            # 커스텀 템플릿 (알파벳순)
+            custom_keys = sorted(k for k in templates if k not in BUILTIN_TEMPLATE_NAMES)
+            for key in custom_keys:
+                combo.addItem(templates[key].name, key)
+
+        # 기본 선택: General
+        idx = self._template_combo.findData(DEFAULT_TEMPLATE)
+        if idx >= 0:
+            self._template_combo.setCurrentIndex(idx)
+        idx2 = self._transcript_viewer._rerun_template_combo.findData(DEFAULT_TEMPLATE)
+        if idx2 >= 0:
+            self._transcript_viewer._rerun_template_combo.setCurrentIndex(idx2)
+
+    def _get_selected_template_key(self) -> str:
+        """컨트롤바 템플릿 콤보에서 선택된 키를 반환한다.
+
+        Returns:
+            템플릿 키 문자열 (예: "general")
+        """
+        return str(self._template_combo.currentData() or DEFAULT_TEMPLATE)
+
+    def _get_transcript_speakers(self) -> dict[str, str] | None:
+        """현재 표시 중인 transcript에서 화자 매핑을 반환한다.
+
+        Returns:
+            화자 매핑 딕셔너리 또는 None
+        """
+        transcript = self._transcript_viewer._current_transcript
+        speakers = transcript.get("metadata", {}).get("speakers", {})
+        return speakers if speakers else None
+
+    def suggest_template(self, template_key: str) -> None:
+        """외부에서 템플릿을 제안한다. 감지 알림 클릭 시 사용.
+
+        Args:
+            template_key: 제안할 템플릿 키
+        """
+        idx = self._template_combo.findData(template_key)
+        if idx >= 0:
+            self._template_combo.setCurrentIndex(idx)
 
     def _set_status_state(self, state: str) -> None:
         """상태 라벨의 동적 스타일 프로퍼티를 설정하고 QSS를 갱신한다."""
@@ -851,6 +990,9 @@ class MainWindow(QMainWindow):
         )
         self._transcript_viewer.diarization_requested.connect(
             self._on_identify_speakers_requested
+        )
+        self._transcript_viewer.rerun_ai_requested.connect(
+            self._on_rerun_ai_requested
         )
 
     # -- 시스템 오디오 --
@@ -1261,11 +1403,22 @@ class MainWindow(QMainWindow):
         # automatically tries the next provider on failure (per D-13, BYOK-04)
         provider = FallbackProvider(manager, chain)
 
+        # 템플릿 프롬프트 렌더링
+        template_key = self._get_selected_template_key()
+        template = self._template_manager.get(template_key)
+        template_prompt = None
+        if template and template.is_structured:
+            speakers = self._get_transcript_speakers()
+            template_prompt = self._template_manager.render_prompt(
+                template, language=result.language, speakers=speakers,
+            )
+
         try:
             self._ai_worker = AITaskWorker(
                 provider=provider,
                 text=full_text,
                 language=result.language,
+                template_prompt=template_prompt,
             )
             self._ai_worker.progress.connect(lambda msg: self._status_bar.showMessage(msg))
             # After worker finishes, check for fallback messages and display per D-14
@@ -1301,7 +1454,17 @@ class MainWindow(QMainWindow):
             metadata = transcript.setdefault("metadata", {})
 
             if ai_result.summary:
-                metadata["summary"] = ai_result.summary
+                template_key = self._get_selected_template_key()
+                template = self._template_manager.get(template_key)
+                if template and template.is_structured:
+                    try:
+                        structured = json.loads(ai_result.summary)
+                        metadata["summary"] = structured  # dict
+                        metadata["summary_template"] = template_key
+                    except json.JSONDecodeError:
+                        metadata["summary"] = ai_result.summary  # 폴백: 평문
+                else:
+                    metadata["summary"] = ai_result.summary
             if ai_result.proofread_text:
                 metadata["proofread"] = ai_result.proofread_text
             if ai_result.keywords:
@@ -1312,8 +1475,110 @@ class MainWindow(QMainWindow):
             save_transcript(transcript, transcript_path)
             self._refresh_recording_list()
             self._status_bar.showMessage("AI processing complete")
+
+            # Re-run AI 버튼 복원
+            self._transcript_viewer._rerun_ai_btn.setText("Re-run AI")
+            self._transcript_viewer._rerun_ai_btn.setEnabled(True)
+
+            # 뷰어 새로고침
+            if self._transcript_viewer._current_path == str(transcript_path):
+                self._transcript_viewer.display_transcript(str(transcript_path))
         except Exception as e:
             self._status_bar.showMessage(f"AI save failed: {e}")
+
+    def _on_rerun_ai_requested(self, transcript_path_str: str, template_key: str) -> None:
+        """Re-run AI 요청 처리. 선택된 템플릿으로 요약만 재생성한다.
+
+        Args:
+            transcript_path_str: transcript.json 경로 문자열
+            template_key: 사용할 템플릿 키
+        """
+        from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+        from meeting_transcriber.ai.tasks import AITaskWorker
+
+        transcript_path = pathlib.Path(transcript_path_str)
+        try:
+            transcript = load_transcript(transcript_path)
+        except Exception:
+            self._status_bar.showMessage("Failed to load transcript")
+            return
+
+        segments = transcript.get("segments", [])
+        full_text = " ".join(s.get("text", "") for s in segments)
+        if not full_text.strip():
+            return
+
+        settings = load_settings()
+        manager = ProviderManager()
+        try:
+            chain = manager.get_provider_chain(settings)
+        except Exception:
+            return
+        if not chain:
+            return
+
+        provider = FallbackProvider(manager, chain)
+
+        # 템플릿 프롬프트
+        template = self._template_manager.get(template_key)
+        template_prompt = None
+        if template and template.is_structured:
+            speakers = transcript.get("metadata", {}).get("speakers")
+            language = transcript.get("metadata", {}).get("languages", ["auto"])[0]
+            template_prompt = self._template_manager.render_prompt(
+                template, language=language, speakers=speakers,
+            )
+
+        template_name = template.name if template else template_key
+        self._status_bar.showMessage(f"Running AI with {template_name} template...")
+
+        try:
+            self._ai_worker = AITaskWorker(
+                provider=provider,
+                text=full_text,
+                language="auto",
+                template_prompt=template_prompt,
+                do_proofread=False,
+                do_summarize=True,
+                do_keywords=False,
+                do_title=False,
+            )
+            self._ai_worker.progress.connect(lambda msg: self._status_bar.showMessage(msg))
+
+            # Re-run 완료 시 사용할 template_key를 캡처
+            def on_rerun_done(ai_result: Any) -> None:
+                self._ai_worker = None
+                try:
+                    t = load_transcript(transcript_path)
+                    meta = t.setdefault("metadata", {})
+                    if ai_result.summary:
+                        tmpl = self._template_manager.get(template_key)
+                        if tmpl and tmpl.is_structured:
+                            try:
+                                structured = json.loads(ai_result.summary)
+                                meta["summary"] = structured
+                                meta["summary_template"] = template_key
+                            except json.JSONDecodeError:
+                                meta["summary"] = ai_result.summary
+                        else:
+                            meta["summary"] = ai_result.summary
+                    save_transcript(t, transcript_path)
+                    self._status_bar.showMessage(f"{template_name} summary generated")
+                    self._transcript_viewer._rerun_ai_btn.setText("Re-run AI")
+                    self._transcript_viewer._rerun_ai_btn.setEnabled(True)
+                    if self._transcript_viewer._current_path == str(transcript_path):
+                        self._transcript_viewer.display_transcript(str(transcript_path))
+                except Exception as e:
+                    self._status_bar.showMessage(f"AI summary failed: {e}")
+                    self._transcript_viewer._rerun_ai_btn.setText("Re-run AI")
+                    self._transcript_viewer._rerun_ai_btn.setEnabled(True)
+
+            self._ai_worker.finished.connect(on_rerun_done)
+            self._ai_worker.start()
+        except Exception as e:
+            self._status_bar.showMessage(f"AI summary failed: {e}")
+            self._transcript_viewer._rerun_ai_btn.setText("Re-run AI")
+            self._transcript_viewer._rerun_ai_btn.setEnabled(True)
 
     # -- 화자 분리 --
 
