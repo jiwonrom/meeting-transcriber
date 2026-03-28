@@ -1,0 +1,15 @@
+name: "Lecture"
+description: "강의 템플릿 — 핵심 개념, Q&A, 핵심 교훈 구조화"
+sections:
+  - key: "key_concepts"
+    label: "Key Concepts"
+  - key: "qa"
+    label: "Q&A"
+  - key: "takeaways"
+    label: "Takeaways"
+prompt: >-
+  Analyze the following lecture transcript and extract structured information.
+  Return a JSON object with exactly these keys: "key_concepts", "qa", "takeaways".
+  Each value must be a list of strings.
+  {speaker_instruction}{language_instruction}
+  Respond ONLY with valid JSON.

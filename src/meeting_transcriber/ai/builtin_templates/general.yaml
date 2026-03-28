@@ -1,0 +1,6 @@
+name: "General"
+description: "범용 요약 템플릿 — 3~5개 핵심 요점으로 요약"
+sections: []
+prompt: >-
+  Summarize the following meeting transcript concisely in 3-5 bullet points.
+  {speaker_instruction}{language_instruction}

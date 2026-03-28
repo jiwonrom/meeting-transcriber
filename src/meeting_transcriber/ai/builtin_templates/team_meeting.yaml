@@ -1,0 +1,15 @@
+name: "Team Meeting"
+description: "팀 회의 템플릿 — 결정사항, 실행항목, 다음 단계 구조화"
+sections:
+  - key: "decisions"
+    label: "Decisions"
+  - key: "action_items"
+    label: "Action Items"
+  - key: "next_steps"
+    label: "Next Steps"
+prompt: >-
+  Analyze the following meeting transcript and extract structured information.
+  Return a JSON object with exactly these keys: "decisions", "action_items", "next_steps".
+  Each value must be a list of strings.
+  {speaker_instruction}{language_instruction}
+  Respond ONLY with valid JSON.

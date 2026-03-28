@@ -1,0 +1,15 @@
+name: "1:1"
+description: "1:1 미팅 템플릿 — 논의사항, 합의, 후속조치 구조화"
+sections:
+  - key: "discussion_points"
+    label: "Discussion Points"
+  - key: "agreements"
+    label: "Agreements"
+  - key: "follow_ups"
+    label: "Follow-ups"
+prompt: >-
+  Analyze the following 1:1 meeting transcript and extract structured information.
+  Return a JSON object with exactly these keys: "discussion_points", "agreements", "follow_ups".
+  Each value must be a list of strings.
+  {speaker_instruction}{language_instruction}
+  Respond ONLY with valid JSON.

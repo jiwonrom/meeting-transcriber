@@ -50,3 +50,21 @@ DIARIZATION_MODEL = "pyannote/speaker-diarization-community-1"
 DIARIZATION_DEVICE = "cpu"  # MPS has sparse tensor bugs with pyannote (PyTorch issue #143955)
 DIARIZATION_CACHE_DIR = DEFAULT_WORKSPACE_DIR / "models" / "pyannote"
 DIARIZATION_COREML_DIR = DIARIZATION_CACHE_DIR / "coreml"
+
+# 회의 템플릿
+TEMPLATES_DIR = DEFAULT_WORKSPACE_DIR / "templates"
+BUILTIN_TEMPLATE_NAMES = ("general", "team_meeting", "one_on_one", "lecture", "interview")
+DEFAULT_TEMPLATE = "general"
+
+# 회의 감지 (Meeting Detection)
+DETECTION_POLL_INTERVAL_MS = 10_000  # 10초 폴링 주기
+DETECTION_COOLDOWN_SECONDS = 300  # 5분 전역 쿨다운
+KNOWN_CONFERENCING_APPS: dict[str, str] = {
+    "us.zoom.xos": "team_meeting",
+    "com.microsoft.teams2": "team_meeting",
+    "com.google.Chrome": "team_meeting",  # Meet — requires audio heuristic
+    "com.apple.FaceTime": "one_on_one",
+    "com.cisco.webexmeetingsapp": "team_meeting",
+    "com.tinyspeck.slackmacgap": "team_meeting",
+}
+CHROME_BUNDLE_ID = "com.google.Chrome"

@@ -1,0 +1,15 @@
+name: "Interview"
+description: "인터뷰 템플릿 — 후보 응답, 평가, 메모 구조화"
+sections:
+  - key: "candidate_responses"
+    label: "Candidate Responses"
+  - key: "assessment"
+    label: "Assessment"
+  - key: "notes"
+    label: "Notes"
+prompt: >-
+  Analyze the following interview transcript and extract structured information.
+  Return a JSON object with exactly these keys: "candidate_responses", "assessment", "notes".
+  Each value must be a list of strings.
+  {speaker_instruction}{language_instruction}
+  Respond ONLY with valid JSON.
