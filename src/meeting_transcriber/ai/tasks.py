@@ -1,4 +1,5 @@
 """AI 태스크 오케스트레이션 — 전사 후 자동 처리."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -41,6 +42,7 @@ class AITaskWorker(QThread):
         do_summarize: bool = True,
         do_keywords: bool = True,
         do_title: bool = True,
+        template_prompt: str | None = None,
         parent: Any = None,
     ) -> None:
         """AITaskWorker를 초기화한다.
@@ -53,6 +55,7 @@ class AITaskWorker(QThread):
             do_summarize: 요약 수행 여부
             do_keywords: 키워드 추출 여부
             do_title: 제목 생성 여부
+            template_prompt: 템플릿 프롬프트 (있으면 요약 시 전달)
             parent: Qt 부모 객체
         """
         super().__init__(parent)
@@ -63,6 +66,7 @@ class AITaskWorker(QThread):
         self._do_summarize = do_summarize
         self._do_keywords = do_keywords
         self._do_title = do_title
+        self._template_prompt = template_prompt
 
     def run(self) -> None:
         """AI 태스크를 순차 실행한다."""
@@ -81,7 +85,9 @@ class AITaskWorker(QThread):
             try:
                 self.progress.emit("Summarizing...")
                 result.summary = self._provider.summarize(
-                    self._text, language=self._language
+                    self._text,
+                    language=self._language,
+                    template_prompt=self._template_prompt,
                 )
             except Exception as e:
                 result.errors.append(f"Summary failed: {e}")

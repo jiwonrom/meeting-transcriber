@@ -1,4 +1,5 @@
 """AI 프로바이더 추상 기반 클래스."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -11,12 +12,15 @@ class AIProvider(ABC):
     """
 
     @abstractmethod
-    def summarize(self, text: str, *, language: str = "auto") -> str:
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
         """텍스트를 요약한다.
 
         Args:
             text: 요약할 전사 텍스트
             language: 출력 언어 (auto면 입력 언어 유지)
+            template_prompt: template_prompt가 있으면 템플릿 프롬프트를 사용
 
         Returns:
             요약된 텍스트

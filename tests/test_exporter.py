@@ -6,6 +6,7 @@ import pathlib
 
 from meeting_transcriber.storage.exporter import (
     _format_duration,
+    _format_summary_for_export,
     _format_timestamp,
     export_to_markdown,
     export_to_obsidian,
@@ -449,6 +450,51 @@ def test_vtt_speaker_labels_included() -> None:
     vtt = export_to_vtt(_sample_transcript_with_named_speakers())
     assert "Bob: Hi there" in vtt
     assert "Alice: Hello" in vtt
+
+
+def _sample_dict_summary_transcript() -> dict:
+    """구조화된 dict summary가 포함된 테스트용 transcript."""
+    t = _sample_transcript()
+    t["metadata"]["summary"] = {
+        "decisions": ["Approve Q2 budget", "Hire 2 engineers"],
+        "action_items": ["Schedule follow-up meeting"],
+        "next_steps": ["Draft proposal by Friday"],
+    }
+    t["metadata"]["tags"] = ["meeting", "Q2"]
+    return t
+
+
+def test_export_markdown_dict_summary() -> None:
+    """export_to_markdown이 dict summary를 구조화 형식으로 출력하는지 확인."""
+    md = export_to_markdown(_sample_dict_summary_transcript(), include_ai_results=True)
+    assert "## Summary" in md
+    assert "### Decisions" in md
+    assert "Approve Q2 budget" in md
+    assert "### Action Items" in md
+    assert "### Next Steps" in md
+
+
+def test_export_txt_dict_summary() -> None:
+    """export_to_txt가 dict summary를 올바르게 처리하는지 확인."""
+    txt = export_to_txt(_sample_dict_summary_transcript(), include_ai_results=True)
+    assert "Summary:" in txt
+    assert "Approve Q2 budget" in txt
+    assert "Decisions" in txt
+
+
+def test_export_obsidian_dict_summary() -> None:
+    """export_to_obsidian이 dict summary를 올바르게 처리하는지 확인."""
+    md = export_to_obsidian(_sample_dict_summary_transcript())
+    assert "## Summary" in md
+    assert "Decisions" in md
+    assert "Approve Q2 budget" in md
+
+
+def test_export_markdown_str_summary() -> None:
+    """export_to_markdown이 기존 str summary와 하위 호환되는지 확인."""
+    md = export_to_markdown(_sample_ai_transcript(), include_ai_results=True)
+    assert "## Summary" in md
+    assert "Q1 roadmap" in md
 
 
 def test_srt_include_speaker_false_omits_labels() -> None:

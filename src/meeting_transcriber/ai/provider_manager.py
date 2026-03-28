@@ -1,4 +1,5 @@
 """AI 프로바이더 관리 및 폴백 처리."""
+
 from __future__ import annotations
 
 import importlib
@@ -39,9 +40,7 @@ class ProviderManager:
         default = ai_settings.get("default_provider", "gemini")
         return self._build_chain(default)
 
-    def get_provider_for_task(
-        self, task: str, settings: dict[str, Any]
-    ) -> list[AIProvider]:
+    def get_provider_for_task(self, task: str, settings: dict[str, Any]) -> list[AIProvider]:
         """특정 태스크에 대한 프로바이더 체인을 반환한다.
 
         task_overrides에 해당 태스크가 지정되어 있으면 그 프로바이더를 우선한다.
@@ -98,15 +97,11 @@ class ProviderManager:
                 return result, msg
             except Exception as e:
                 provider_name = type(provider).__name__
-                logger.warning(
-                    "Provider %s.%s failed: %s", provider_name, method, e
-                )
+                logger.warning("Provider %s.%s failed: %s", provider_name, method, e)
                 failed_names.append(provider_name)
                 last_error = e
 
-        raise RuntimeError(
-            f"All providers failed. Last error: {last_error}"
-        )
+        raise RuntimeError(f"All providers failed. Last error: {last_error}")
 
     def _build_chain(self, default: str) -> list[AIProvider]:
         """기본 프로바이더를 첫 번째로 하는 체인을 구성한다.
@@ -196,16 +191,18 @@ class FallbackProvider(AIProvider):
         Returns:
             메서드 실행 결과
         """
-        result, msg = self._manager.execute_with_fallback(
-            self._chain, method, *args, **kwargs
-        )
+        result, msg = self._manager.execute_with_fallback(self._chain, method, *args, **kwargs)
         if msg:
             self.fallback_messages.append(msg)
         return result
 
-    def summarize(self, text: str, *, language: str = "auto") -> str:
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
         """텍스트를 요약한다 (폴백 지원)."""
-        return self._call_with_fallback("summarize", text, language=language)
+        return self._call_with_fallback(
+            "summarize", text, language=language, template_prompt=template_prompt
+        )
 
     def proofread(self, text: str, *, language: str = "auto") -> str:
         """텍스트를 교열한다 (폴백 지원)."""

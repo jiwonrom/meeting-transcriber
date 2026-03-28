@@ -1,4 +1,5 @@
 """Anthropic AI 프로바이더 구현."""
+
 from __future__ import annotations
 
 from anthropic import Anthropic
@@ -13,9 +14,7 @@ class AnthropicProvider(AIProvider):
     macOS Keychain에서 API 키를 로드하여 Anthropic API를 호출한다.
     """
 
-    def __init__(
-        self, api_key: str | None = None, model: str = "claude-sonnet-4-20250514"
-    ) -> None:
+    def __init__(self, api_key: str | None = None, model: str = "claude-sonnet-4-20250514") -> None:
         """AnthropicProvider를 초기화한다.
 
         Args:
@@ -27,10 +26,7 @@ class AnthropicProvider(AIProvider):
         """
         key = api_key or get_api_key("anthropic")
         if not key:
-            raise ValueError(
-                "Anthropic API key not found. "
-                "Set it in Settings > API Keys."
-            )
+            raise ValueError("Anthropic API key not found. Set it in Settings > API Keys.")
         self._client = Anthropic(api_key=key)
         self._model = model
 
@@ -44,8 +40,23 @@ class AnthropicProvider(AIProvider):
         text: str = message.content[0].text
         return text.strip()
 
-    def summarize(self, text: str, *, language: str = "auto") -> str:
-        """텍스트를 요약한다."""
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
+        """텍스트를 요약한다.
+
+        Args:
+            text: 요약할 전사 텍스트
+            language: 출력 언어
+            template_prompt: 템플릿 프롬프트 (있으면 프롬프트 기반 JSON 지시)
+
+        Returns:
+            요약된 텍스트 (또는 JSON 문자열)
+        """
+        if template_prompt:
+            prompt = f"{template_prompt}\n\nTranscript:\n{text}"
+            return self._call(prompt)
+
         lang_hint = f" Respond in {language}." if language != "auto" else ""
         prompt = (
             f"Summarize the following meeting transcript concisely "

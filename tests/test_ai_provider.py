@@ -1,4 +1,5 @@
 """AI provider 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -14,7 +15,9 @@ from meeting_transcriber.ai.tasks import AIResult, AITaskWorker
 class MockProvider(AIProvider):
     """테스트용 mock AI 프로바이더."""
 
-    def summarize(self, text: str, *, language: str = "auto") -> str:
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
         return "- Point 1\n- Point 2\n- Point 3"
 
     def proofread(self, text: str, *, language: str = "auto") -> str:
@@ -131,7 +134,9 @@ def test_ai_task_worker_error_handling(qtbot: object) -> None:
     """태스크 실패 시 에러가 수집되는지 확인."""
 
     class FailingProvider(MockProvider):
-        def summarize(self, text: str, *, language: str = "auto") -> str:
+        def summarize(
+            self, text: str, *, language: str = "auto", template_prompt: str | None = None
+        ) -> str:
             raise RuntimeError("API error")
 
     provider = FailingProvider()
@@ -284,9 +289,7 @@ def test_anthropic_provider_implements_abc() -> None:
     """AnthropicProvider가 AIProvider ABC를 구현하는지 확인."""
     with (
         patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
-        patch(
-            "meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"
-        ),
+        patch("meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"),
     ):
         mock_cls.return_value = MagicMock()
         from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
@@ -308,9 +311,7 @@ def test_anthropic_provider_summarize() -> None:
     """Anthropic summarize가 동작하는지 확인."""
     with (
         patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
-        patch(
-            "meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"
-        ),
+        patch("meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"),
     ):
         mock_client = MagicMock()
         mock_cls.return_value = mock_client
@@ -332,7 +333,9 @@ def test_anthropic_provider_summarize() -> None:
 class FailingMockProvider(AIProvider):
     """모든 메서드에서 예외를 발생시키는 테스트 프로바이더."""
 
-    def summarize(self, text: str, *, language: str = "auto") -> str:
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
         raise RuntimeError("FailingMockProvider error")
 
     def proofread(self, text: str, *, language: str = "auto") -> str:
@@ -371,9 +374,7 @@ def test_provider_manager_multi_chain() -> None:
     manager = ProviderManager()
     settings = {"ai": {"default_provider": "gemini", "task_overrides": {}}}
 
-    with patch.object(
-        manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")
-    ):
+    with patch.object(manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")):
         with patch.object(manager, "_instantiate", return_value=MockProvider()):
             chain = manager.get_provider_chain(settings)
             assert len(chain) == 2
@@ -392,9 +393,7 @@ def test_provider_manager_custom_default() -> None:
         providers_created.append(name)
         return MockProvider()
 
-    with patch.object(
-        manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")
-    ):
+    with patch.object(manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")):
         with patch.object(manager, "_instantiate", side_effect=mock_instantiate):
             chain = manager.get_provider_chain(settings)
             assert len(chain) == 2
@@ -454,9 +453,7 @@ def test_provider_manager_task_override() -> None:
         providers_created.append(name)
         return MockProvider()
 
-    with patch.object(
-        manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")
-    ):
+    with patch.object(manager, "_has_key", side_effect=lambda n: n in ("gemini", "openai")):
         with patch.object(manager, "_instantiate", side_effect=mock_instantiate):
             chain = manager.get_provider_for_task("summarize", settings)
             assert len(chain) >= 1
@@ -500,6 +497,135 @@ def test_fallback_provider_fallback_emits_message() -> None:
     assert "Point 1" in result
     assert len(provider.fallback_messages) == 1
     assert "failed" in provider.fallback_messages[0].lower()
+
+
+def test_summarize_with_template_prompt() -> None:
+    """각 프로바이더의 summarize()가 template_prompt kwarg를 수용하는지 확인."""
+    provider = MockProvider()
+    result = provider.summarize("test text", template_prompt="Custom prompt")
+    assert result is not None
+
+
+def test_fallback_provider_forwards_template_prompt() -> None:
+    """FallbackProvider.summarize()가 template_prompt를 전달하는지 확인."""
+    from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+
+    manager = ProviderManager()
+    chain = [MockProvider()]
+    provider = FallbackProvider(manager, chain)
+
+    result = provider.summarize("test text", template_prompt="Custom prompt")
+    assert "Point 1" in result
+
+
+def test_ai_task_worker_template_prompt(qtbot: object) -> None:
+    """AITaskWorker가 template_prompt를 provider.summarize()에 전달하는지 확인."""
+    called_kwargs: list[dict] = []
+
+    class TrackingProvider(MockProvider):
+        def summarize(self, text: str, *, language: str = "auto", template_prompt: str | None = None) -> str:
+            called_kwargs.append({"language": language, "template_prompt": template_prompt})
+            return '{"decisions": ["item1"]}'
+
+    provider = TrackingProvider()
+    worker = AITaskWorker(
+        provider=provider,
+        text="test text",
+        template_prompt="Custom template prompt",
+        do_proofread=False,
+        do_keywords=False,
+        do_title=False,
+    )
+
+    results: list[AIResult] = []
+    worker.finished.connect(lambda r: results.append(r))
+    worker.run()
+
+    assert len(called_kwargs) == 1
+    assert called_kwargs[0]["template_prompt"] == "Custom template prompt"
+
+
+def test_ai_task_worker_no_template(qtbot: object) -> None:
+    """template_prompt 없이 AITaskWorker가 기존 방식대로 동작하는지 확인."""
+    called_kwargs: list[dict] = []
+
+    class TrackingProvider(MockProvider):
+        def summarize(self, text: str, *, language: str = "auto", template_prompt: str | None = None) -> str:
+            called_kwargs.append({"template_prompt": template_prompt})
+            return "- Point 1"
+
+    provider = TrackingProvider()
+    worker = AITaskWorker(provider=provider, text="test")
+
+    results: list[AIResult] = []
+    worker.finished.connect(lambda r: results.append(r))
+    worker.run()
+
+    assert called_kwargs[0]["template_prompt"] is None
+
+
+def test_gemini_json_mode() -> None:
+    """GeminiProvider.summarize()에 template_prompt 전달 시 JSON 모드 사용 확인."""
+    with (
+        patch("meeting_transcriber.ai.gemini_provider.genai") as mock_genai,
+        patch("meeting_transcriber.ai.gemini_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel.return_value = mock_model
+        mock_response = MagicMock()
+        mock_response.text = '{"decisions": ["item1"]}'
+        mock_model.generate_content.return_value = mock_response
+
+        from meeting_transcriber.ai.gemini_provider import GeminiProvider
+        provider = GeminiProvider()
+        result = provider.summarize("test", template_prompt="Return JSON")
+
+        # Verify generate_content was called with generation_config
+        call_args = mock_model.generate_content.call_args
+        assert "generation_config" in call_args.kwargs or (
+            len(call_args.args) > 1 or "generation_config" in (call_args.kwargs or {})
+        )
+
+
+def test_openai_json_mode() -> None:
+    """OpenAIProvider.summarize()에 template_prompt 전달 시 json_object 모드 사용 확인."""
+    with (
+        patch("meeting_transcriber.ai.openai_provider.OpenAI") as mock_cls,
+        patch("meeting_transcriber.ai.openai_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _make_openai_mock_response(
+            '{"decisions": ["item1"]}'
+        )
+
+        from meeting_transcriber.ai.openai_provider import OpenAIProvider
+        provider = OpenAIProvider()
+        result = provider.summarize("test", template_prompt="Return JSON")
+
+        call_kwargs = mock_client.chat.completions.create.call_args.kwargs
+        assert call_kwargs.get("response_format") == {"type": "json_object"}
+
+
+def test_anthropic_json_fallback() -> None:
+    """AnthropicProvider.summarize()에 template_prompt 전달 시 프롬프트에 JSON 지시 포함 확인."""
+    with (
+        patch("meeting_transcriber.ai.anthropic_provider.Anthropic") as mock_cls,
+        patch("meeting_transcriber.ai.anthropic_provider.get_api_key", return_value="test-key"),
+    ):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = _make_anthropic_mock_response(
+            '{"decisions": ["item1"]}'
+        )
+
+        from meeting_transcriber.ai.anthropic_provider import AnthropicProvider
+        provider = AnthropicProvider()
+        result = provider.summarize("test", template_prompt="Return JSON. Respond ONLY with valid JSON.")
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        prompt_content = call_kwargs["messages"][0]["content"]
+        assert "Respond ONLY with valid JSON" in prompt_content
 
 
 def test_fallback_provider_proofread_uses_fallback() -> None:

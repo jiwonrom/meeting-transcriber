@@ -1,4 +1,5 @@
 """OpenAI AI 프로바이더 구현."""
+
 from __future__ import annotations
 
 from openai import OpenAI
@@ -25,10 +26,7 @@ class OpenAIProvider(AIProvider):
         """
         key = api_key or get_api_key("openai")
         if not key:
-            raise ValueError(
-                "OpenAI API key not found. "
-                "Set it in Settings > API Keys."
-            )
+            raise ValueError("OpenAI API key not found. Set it in Settings > API Keys.")
         self._client = OpenAI(api_key=key)
         self._model = model
 
@@ -41,8 +39,29 @@ class OpenAIProvider(AIProvider):
         content: str = response.choices[0].message.content
         return content.strip()
 
-    def summarize(self, text: str, *, language: str = "auto") -> str:
-        """텍스트를 요약한다."""
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
+        """텍스트를 요약한다.
+
+        Args:
+            text: 요약할 전사 텍스트
+            language: 출력 언어
+            template_prompt: 템플릿 프롬프트 (있으면 json_object 모드로 호출)
+
+        Returns:
+            요약된 텍스트 (또는 JSON 문자열)
+        """
+        if template_prompt:
+            prompt = f"{template_prompt}\n\nTranscript:\n{text}"
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+            )
+            content: str = response.choices[0].message.content
+            return content.strip()
+
         lang_hint = f" Respond in {language}." if language != "auto" else ""
         prompt = (
             f"Summarize the following meeting transcript concisely "

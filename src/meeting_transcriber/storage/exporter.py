@@ -1,4 +1,5 @@
 """transcript 내보내기 — Markdown, TXT, SRT, VTT, Obsidian 포맷."""
+
 from __future__ import annotations
 
 import pathlib
@@ -44,6 +45,32 @@ def _format_duration(seconds: float) -> str:
     if m > 0:
         return f"{m}m {s}s"
     return f"{s}s"
+
+
+def _format_summary_for_export(summary: str | dict[str, Any]) -> str:
+    """요약 데이터를 내보내기용 문자열로 변환한다.
+
+    str이면 그대로 반환하고, dict이면 섹션별 Markdown으로 포맷한다.
+
+    Args:
+        summary: 요약 텍스트 또는 구조화된 dict
+
+    Returns:
+        포맷된 문자열
+    """
+    if isinstance(summary, dict):
+        parts: list[str] = []
+        for key, items in summary.items():
+            label = key.replace("_", " ").title()
+            parts.append(f"### {label}")
+            if isinstance(items, list):
+                for item in items:
+                    parts.append(f"- {item}")
+            else:
+                parts.append(str(items))
+            parts.append("")
+        return "\n".join(parts)
+    return str(summary) if summary else ""
 
 
 def export_to_markdown(
@@ -96,7 +123,8 @@ def export_to_markdown(
         if summary:
             parts.append("## Summary")
             parts.append("")
-            parts.append(summary)
+            formatted = _format_summary_for_export(summary)
+            parts.append(formatted)
             parts.append("")
 
         tags = metadata.get("tags", [])
@@ -162,7 +190,8 @@ def export_to_txt(
         summary = metadata.get("summary", "")
         if summary:
             parts.append("Summary:")
-            parts.append(summary)
+            formatted = _format_summary_for_export(summary)
+            parts.append(formatted)
             parts.append("")
 
         tags = metadata.get("tags", [])
@@ -369,7 +398,8 @@ def export_to_obsidian(transcript: dict[str, Any]) -> str:
     if summary:
         parts.append("## Summary")
         parts.append("")
-        parts.append(summary)
+        formatted = _format_summary_for_export(summary)
+        parts.append(formatted)
         parts.append("")
 
     if tags:
@@ -409,7 +439,7 @@ def obsidian_filename(transcript: dict[str, Any]) -> str:
     title = metadata.get("title", "Untitled")
 
     # 비안전 문자 제거
-    safe_title = re.sub(r'[/\\|#\^{}\[\]]', "", title)
+    safe_title = re.sub(r"[/\\|#\^{}\[\]]", "", title)
     # 공백을 언더스코어로 변환
     safe_title = safe_title.replace(" ", "_")
     # 연속 언더스코어 정리

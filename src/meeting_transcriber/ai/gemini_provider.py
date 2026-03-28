@@ -1,4 +1,5 @@
 """Gemini 3.0 Flash AI 프로바이더 구현."""
+
 from __future__ import annotations
 
 import google.generativeai as genai
@@ -25,10 +26,7 @@ class GeminiProvider(AIProvider):
         """
         key = api_key or get_api_key("gemini")
         if not key:
-            raise ValueError(
-                "Gemini API key not found. "
-                "Set it in Settings > API Keys."
-            )
+            raise ValueError("Gemini API key not found. Set it in Settings > API Keys.")
         genai.configure(api_key=key)
         self._model = genai.GenerativeModel(model)
 
@@ -38,8 +36,27 @@ class GeminiProvider(AIProvider):
         text: str = response.text
         return text.strip()
 
-    def summarize(self, text: str, *, language: str = "auto") -> str:
-        """텍스트를 요약한다."""
+    def summarize(
+        self, text: str, *, language: str = "auto", template_prompt: str | None = None
+    ) -> str:
+        """텍스트를 요약한다.
+
+        Args:
+            text: 요약할 전사 텍스트
+            language: 출력 언어
+            template_prompt: 템플릿 프롬프트 (있으면 JSON 모드로 호출)
+
+        Returns:
+            요약된 텍스트 (또는 JSON 문자열)
+        """
+        if template_prompt:
+            prompt = f"{template_prompt}\n\nTranscript:\n{text}"
+            response = self._model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"},
+            )
+            return response.text.strip()
+
         lang_hint = f" Respond in {language}." if language != "auto" else ""
         prompt = (
             f"Summarize the following meeting transcript concisely "
