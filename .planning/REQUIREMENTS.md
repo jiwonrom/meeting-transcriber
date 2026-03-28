@@ -35,9 +35,9 @@
 
 ### Meeting Templates
 
-- [ ] **TPL-01**: User can select a meeting template before or after recording (Team Meeting, 1:1, Lecture, Interview)
-- [ ] **TPL-02**: AI summary output adapts to selected template format (action items for meetings, Q&A for lectures)
-- [ ] **TPL-03**: User can create custom templates with prompt instructions
+- [x] **TPL-01**: User can select a meeting template before or after recording (Team Meeting, 1:1, Lecture, Interview)
+- [x] **TPL-02**: AI summary output adapts to selected template format (action items for meetings, Q&A for lectures)
+- [x] **TPL-03**: User can create custom templates with prompt instructions
 
 ### Meeting Detection
 
@@ -89,9 +89,9 @@
 | DIAR-02 | Phase 3 | Complete |
 | DIAR-03 | Phase 3 | Complete |
 | DIAR-04 | Phase 3 | Complete |
-| TPL-01 | Phase 4 | Pending |
-| TPL-02 | Phase 4 | Pending |
-| TPL-03 | Phase 4 | Pending |
+| TPL-01 | Phase 4 | Complete |
+| TPL-02 | Phase 4 | Complete |
+| TPL-03 | Phase 4 | Complete |
 | DET-01 | Phase 4 | Complete |
 | DET-02 | Phase 4 | Complete |
 | CMA-01 | Phase 5 | Pending |

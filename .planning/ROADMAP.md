@@ -87,7 +87,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Template system backend: TemplateManager, YAML templates, AI provider extension, exporter compatibility
+- [x] 04-01-PLAN.md — Template system backend: TemplateManager, YAML templates, AI provider extension, exporter compatibility
 - [x] 04-02-PLAN.md — Meeting detection backend: MeetingDetectorWorker with NSWorkspace polling, cooldown, snooze
 - [ ] 04-03-PLAN.md — UI integration: template dropdown, structured summary display, Re-run AI, detection notifications, settings
 
