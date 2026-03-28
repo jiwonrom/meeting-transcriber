@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-03-28T03:05:26.758Z"
-last_activity: 2026-03-27
+status: executing
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-28T03:31:52.572Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 12
+  completed_plans: 10
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** 실시간 캡션 -- 화면 위 자막으로 회의/강의를 실시간 전사
-**Current focus:** Phase 03 — speaker-diarization
+**Current focus:** Phase 04 — meeting-intelligence
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-03-27
+Phase: 04 (meeting-intelligence) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-03-28
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P01 | 5min | 2 tasks | 8 files |
 | Phase 03 P03 | 3min | 1 tasks | 3 files |
 | Phase 03 P02 | 5min | 3 tasks | 4 files |
+| Phase 04 P02 | 2min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Recent decisions affecting current work:
 - [Phase 03]: CoreML conversion via coremltools lazy import -- no hard dependency
 - [Phase 03]: Speaker labels rendered as HTML via setHtml() for inline styling with font-weight 600
 - [Phase 03]: HF token validation requires hf_ prefix before saving to Keychain
+- [Phase 04]: Lazy import NSWorkspace inside _poll_once() for optional pyobjc dependency
 
 ### Pending Todos
 
@@ -97,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T03:05:26.755Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: .planning/phases/04-meeting-intelligence/04-UI-SPEC.md
+Last session: 2026-03-28T03:31:52.570Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: None

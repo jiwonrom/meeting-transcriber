@@ -41,8 +41,8 @@
 
 ### Meeting Detection
 
-- [ ] **DET-01**: App detects when common conferencing apps are active (Zoom, Teams, Meet, FaceTime)
-- [ ] **DET-02**: App offers to start recording when a meeting is detected (notification prompt)
+- [x] **DET-01**: App detects when common conferencing apps are active (Zoom, Teams, Meet, FaceTime)
+- [x] **DET-02**: App offers to start recording when a meeting is detected (notification prompt)
 
 ### Cross-Meeting Analysis
 
@@ -92,8 +92,8 @@
 | TPL-01 | Phase 4 | Pending |
 | TPL-02 | Phase 4 | Pending |
 | TPL-03 | Phase 4 | Pending |
-| DET-01 | Phase 4 | Pending |
-| DET-02 | Phase 4 | Pending |
+| DET-01 | Phase 4 | Complete |
+| DET-02 | Phase 4 | Complete |
 | CMA-01 | Phase 5 | Pending |
 | CMA-02 | Phase 5 | Pending |
 | CMA-03 | Phase 5 | Pending |
