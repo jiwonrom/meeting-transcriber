@@ -84,7 +84,13 @@ Plans:
   2. AI summary output format adapts to the selected template (e.g., action items for meetings, Q&A pairs for lectures)
   3. User can create a custom template with their own prompt instructions and use it for future recordings
   4. When Zoom, Teams, Meet, or FaceTime is active, the app surfaces a notification offering to start recording
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Template system backend: TemplateManager, YAML templates, AI provider extension, exporter compatibility
+- [ ] 04-02-PLAN.md — Meeting detection backend: MeetingDetectorWorker with NSWorkspace polling, cooldown, snooze
+- [ ] 04-03-PLAN.md — UI integration: template dropdown, structured summary display, Re-run AI, detection notifications, settings
+
 **UI hint**: yes
 
 ### Phase 5: Cross-Meeting Analysis
@@ -105,8 +111,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Export & Multi-Provider | 2/3 | Executing | - |
-| 2. System Audio Capture | 2/3 | In Progress|  |
-| 3. Speaker Diarization | 0/3 | Planned | - |
-| 4. Meeting Intelligence | 0/TBD | Not started | - |
+| 1. Export & Multi-Provider | 3/3 | Complete | - |
+| 2. System Audio Capture | 2/3 | In Progress| |
+| 3. Speaker Diarization | 3/3 | Complete | - |
+| 4. Meeting Intelligence | 0/3 | Planning | - |
 | 5. Cross-Meeting Analysis | 0/TBD | Not started | - |
