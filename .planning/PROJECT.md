@@ -36,11 +36,14 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 - ✓ Speaker labels in transcript viewer (inline prefix) — Validated in Phase 3: Speaker Diarization
 - ✓ Transcript schema v2.0 with speaker data — Validated in Phase 3: Speaker Diarization
 - ✓ CoreML/ANE optimization attempt with CPU fallback — Validated in Phase 3: Speaker Diarization
+- ✓ Meeting templates (General, Team Meeting, 1:1, Lecture, Interview) — Validated in Phase 4: Meeting Intelligence
+- ✓ Template-adaptive AI summaries with structured JSON sections — Validated in Phase 4: Meeting Intelligence
+- ✓ Custom YAML template support — Validated in Phase 4: Meeting Intelligence
+- ✓ Auto meeting detection (Zoom, Teams, Meet, FaceTime) — Validated in Phase 4: Meeting Intelligence
+- ✓ Recording prompt via macOS notification with snooze — Validated in Phase 4: Meeting Intelligence
 
 ### Active
 
-- [ ] Auto meeting detection (microphone/process monitoring)
-- [ ] Meeting format/templates (Team Meeting, 1:1, Lecture, Interview)
 - [ ] Cross-meeting analysis (multi-transcript insights)
 - [ ] Notion export integration
 
@@ -56,7 +59,7 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 
 - **Codebase**: ~30 Python files across 5 modules (ui, core, ai, storage, utils)
 - **Architecture**: Strict unidirectional deps (ui→core, ui→ai, ai→storage), Signal/Slot for reverse communication
-- **Current state**: Phase 3 complete with 290 passing tests, speaker diarization operational
+- **Current state**: Phase 4 complete with 339 passing tests, meeting intelligence operational
 - **Key tech debt**: MainWindow god object (900+ lines), no file import UI, SidebarWidget unused
 - **PRD**: Detailed v2.0 scope in PRD.md §4.3
 
@@ -97,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-28 after Phase 3 completion*
+*Last updated: 2026-03-28 after Phase 4 completion*
