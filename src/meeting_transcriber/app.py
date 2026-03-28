@@ -137,6 +137,40 @@ def main() -> None:
     tray = TrayIcon()
     tray.show()
 
+    # 회의 감지
+    from meeting_transcriber.core.meeting_detector import MeetingDetectorWorker
+
+    detector = MeetingDetectorWorker()
+
+    # 감지 → 트레이 알림 (3-arg signal: app_name, template_key, bundle_id)
+    detector.meeting_detected.connect(tray.show_meeting_notification)
+
+    # 알림 클릭 → MainWindow 템플릿 제안 + 윈도우 표시
+    tray.recording_from_detection.connect(window.suggest_template)
+    tray.recording_from_detection.connect(lambda _: (window.show(), window.raise_()))
+
+    # 스누즈 → 감지기
+    tray.snooze_requested.connect(detector.snooze)
+
+    # 감지 토글 → 감지기 시작/중지
+    tray.detection_toggled.connect(
+        lambda enabled: detector.start_detection() if enabled else detector.stop_detection()
+    )
+
+    # 녹음 상태 → 감지기 (녹음 중 감지 억제)
+    window.recording_started.connect(lambda: detector.set_recording(True))
+    window.recording_stopped.connect(lambda: detector.set_recording(False))
+
+    # 설정에서 감지 활성화 확인 후 시작
+    if settings.get("detection", {}).get("enabled", True):
+        detector.start_detection()
+        tray.set_detection_state(True)
+    else:
+        tray.set_detection_state(False)
+
+    # 앱 종료 시 감지 중지
+    app.aboutToQuit.connect(detector.stop_detection)
+
     # 단축키
     shortcuts = ShortcutManager(window)
 

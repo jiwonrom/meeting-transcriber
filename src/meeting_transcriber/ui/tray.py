@@ -1,4 +1,5 @@
 """macOS 메뉴바 트레이 아이콘 — 빠른 녹음 제어."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -47,13 +48,16 @@ def _create_tray_icon(
 class TrayIcon(QSystemTrayIcon):
     """macOS 메뉴바 트레이 아이콘.
 
-    녹음 시작/정지, 윈도우/오버레이 표시, 앱 종료를 제공한다.
+    녹음 시작/정지, 윈도우/오버레이 표시, 회의 감지 알림, 앱 종료를 제공한다.
     """
 
     recording_toggled = pyqtSignal(bool)
     show_window_requested = pyqtSignal()
     overlay_toggle_requested = pyqtSignal()
     quit_requested = pyqtSignal()
+    recording_from_detection = pyqtSignal(str)  # suggested_template_key
+    snooze_requested = pyqtSignal(str)  # bundle_id
+    detection_toggled = pyqtSignal(bool)  # enabled
 
     def __init__(self, parent: Any = None) -> None:
         """TrayIcon을 초기화한다.
@@ -65,11 +69,16 @@ class TrayIcon(QSystemTrayIcon):
         self._recording = False
         self._recording_color = DEFAULT_RECORDING_COLOR
         self._idle_color = DEFAULT_IDLE_COLOR
+        self._pending_template = ""
+        self._pending_bundle_id = ""
 
         self.setIcon(_create_tray_icon(recording=False))
         self.setToolTip(APP_NAME)
 
         self._setup_menu()
+
+        # 알림 클릭 시 처리
+        self.messageClicked.connect(self._on_notification_clicked)
 
     def _setup_menu(self) -> None:
         """트레이 메뉴를 구성한다."""
@@ -91,6 +100,21 @@ class TrayIcon(QSystemTrayIcon):
 
         self._menu.addSeparator()
 
+        # 회의 감지 토글
+        self._detection_action = QAction("Meeting Detection: On", self)
+        self._detection_action.setCheckable(True)
+        self._detection_action.setChecked(True)
+        self._detection_action.toggled.connect(self._on_detection_action_toggled)
+        self._menu.addAction(self._detection_action)
+
+        # 스누즈 액션 (감지 알림 후에만 표시)
+        self._snooze_action = QAction("Snooze", self)
+        self._snooze_action.setVisible(False)
+        self._snooze_action.triggered.connect(self._on_snooze_clicked)
+        self._menu.addAction(self._snooze_action)
+
+        self._menu.addSeparator()
+
         quit_action = QAction("Quit", self)
         quit_action.triggered.connect(self.quit_requested.emit)
         self._menu.addAction(quit_action)
@@ -105,17 +129,15 @@ class TrayIcon(QSystemTrayIcon):
 
     def _update_state(self) -> None:
         """아이콘과 메뉴 텍스트를 현재 상태에 맞게 업데이트한다."""
-        self.setIcon(_create_tray_icon(
-            recording=self._recording,
-            recording_color=self._recording_color,
-            idle_color=self._idle_color,
-        ))
-        self._record_action.setText(
-            "Stop Recording" if self._recording else "Start Recording"
+        self.setIcon(
+            _create_tray_icon(
+                recording=self._recording,
+                recording_color=self._recording_color,
+                idle_color=self._idle_color,
+            )
         )
-        self.setToolTip(
-            f"{APP_NAME} — Recording..." if self._recording else APP_NAME
-        )
+        self._record_action.setText("Stop Recording" if self._recording else "Start Recording")
+        self.setToolTip(f"{APP_NAME} — Recording..." if self._recording else APP_NAME)
 
     @property
     def is_recording(self) -> bool:
@@ -135,3 +157,63 @@ class TrayIcon(QSystemTrayIcon):
     def menu(self) -> QMenu:
         """트레이 메뉴."""
         return self._menu
+
+    # -- 회의 감지 알림 --
+
+    def show_meeting_notification(
+        self, app_name: str, suggested_template: str, bundle_id: str
+    ) -> None:
+        """회의 감지 알림을 표시한다.
+
+        Args:
+            app_name: 감지된 앱 이름
+            suggested_template: 제안 템플릿 키
+            bundle_id: 감지된 앱 번들 ID (스누즈용)
+        """
+        self._pending_template = suggested_template
+        self._pending_bundle_id = bundle_id
+        self.showMessage(
+            "Meeting Detected",
+            f"{app_name} is active. Click to start recording.",
+            QSystemTrayIcon.MessageIcon.Information,
+            10000,
+        )
+        self._snooze_action.setVisible(True)
+        self._snooze_action.setText(f"Snooze {app_name}")
+
+    def _on_notification_clicked(self) -> None:
+        """알림 클릭 시 감지된 템플릿으로 녹음을 시작한다."""
+        if self._pending_template:
+            self.recording_from_detection.emit(self._pending_template)
+            self._pending_template = ""
+            self._snooze_action.setVisible(False)
+
+    def _on_snooze_clicked(self) -> None:
+        """스누즈 클릭 시 해당 앱 감지를 억제한다."""
+        if self._pending_bundle_id:
+            self.snooze_requested.emit(self._pending_bundle_id)
+            self._snooze_action.setVisible(False)
+            self._pending_bundle_id = ""
+            self._pending_template = ""
+
+    def _on_detection_action_toggled(self, checked: bool) -> None:
+        """감지 메뉴 토글 처리.
+
+        Args:
+            checked: 감지 활성화 여부
+        """
+        self._detection_action.setText(
+            "Meeting Detection: On" if checked else "Meeting Detection: Off"
+        )
+        self.detection_toggled.emit(checked)
+
+    def set_detection_state(self, enabled: bool) -> None:
+        """감지 상태를 외부에서 설정한다. Settings 동기화용.
+
+        Args:
+            enabled: 감지 활성화 여부
+        """
+        self._detection_action.setChecked(enabled)
+        self._detection_action.setText(
+            "Meeting Detection: On" if enabled else "Meeting Detection: Off"
+        )

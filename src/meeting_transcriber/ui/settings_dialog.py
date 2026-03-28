@@ -29,11 +29,14 @@ from meeting_transcriber.core.model_manager import list_available_models
 from meeting_transcriber.core.system_audio import is_blackhole_installed
 from meeting_transcriber.ui.blackhole_wizard import BlackHoleSetupWizard
 from meeting_transcriber.utils.config import load_settings, save_settings
+from meeting_transcriber.ai.templates import TemplateManager
 from meeting_transcriber.utils.constants import (
     AGGREGATE_DEVICE_NAME,
+    BUILTIN_TEMPLATE_NAMES,
     OVERLAY_DEFAULT_LINES,
     OVERLAY_MAX_LINES,
     SUPPORTED_LANGUAGES,
+    TEMPLATES_DIR,
 )
 from meeting_transcriber.utils.keychain import get_api_key, store_api_key
 
@@ -65,6 +68,7 @@ class SettingsDialog(QDialog):
         self._tabs.addTab(self._create_audio_tab(), "Audio")
         self._tabs.addTab(self._create_api_tab(), "API Keys")
         self._tabs.addTab(self._create_speaker_tab(), "Speaker Identification")
+        self._tabs.addTab(self._create_detection_tab(), "Detection")
         layout.addWidget(self._tabs)
 
         buttons = QDialogButtonBox(
@@ -350,6 +354,106 @@ class SettingsDialog(QDialog):
         self._hf_token_input.setPlaceholderText("••••••• (saved)")
         self._hf_status_label.setText("Token saved")
 
+    def _create_detection_tab(self) -> QWidget:
+        """Detection 탭 — 회의 감지 + 템플릿 설정."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        # -- Meeting Detection 섹션 --
+        det_heading = QLabel("Meeting Detection")
+        font = det_heading.font()
+        font.setPixelSize(14)
+        font.setWeight(font.Weight.DemiBold)
+        det_heading.setFont(font)
+        layout.addWidget(det_heading)
+
+        from PyQt6.QtWidgets import QCheckBox
+
+        det_row = QHBoxLayout()
+        self._detection_toggle = QCheckBox("Auto-detect meetings")
+        self._detection_toggle.setChecked(True)
+        det_row.addWidget(self._detection_toggle)
+        det_row.addStretch()
+        layout.addLayout(det_row)
+
+        self._detection_help = QLabel(
+            "Detect Zoom, Teams, Meet, and FaceTime to prompt recording."
+        )
+        self._detection_help.setObjectName("caption")
+        self._detection_help.setWordWrap(True)
+        layout.addWidget(self._detection_help)
+
+        self._detection_toggle.toggled.connect(self._on_detection_toggled)
+
+        # -- Meeting Templates 섹션 --
+        tmpl_heading = QLabel("Meeting Templates")
+        font2 = tmpl_heading.font()
+        font2.setPixelSize(14)
+        font2.setWeight(font2.Weight.DemiBold)
+        tmpl_heading.setFont(font2)
+        layout.addWidget(tmpl_heading)
+
+        # 기본 템플릿 선택
+        tmpl_row = QHBoxLayout()
+        tmpl_row.addWidget(QLabel("Default template"))
+        self._default_template_combo = QComboBox()
+        self._default_template_combo.setFixedWidth(140)
+
+        # 템플릿 목록 채우기
+        tmgr = TemplateManager()
+        tmgr.ensure_templates()
+        templates = tmgr.load_all()
+        for key in BUILTIN_TEMPLATE_NAMES:
+            tmpl = templates.get(key)
+            if tmpl:
+                self._default_template_combo.addItem(tmpl.name, key)
+        custom_keys = sorted(k for k in templates if k not in BUILTIN_TEMPLATE_NAMES)
+        for key in custom_keys:
+            self._default_template_combo.addItem(templates[key].name, key)
+
+        tmpl_row.addWidget(self._default_template_combo)
+        tmpl_row.addStretch()
+        layout.addLayout(tmpl_row)
+
+        # 템플릿 폴더
+        folder_row = QHBoxLayout()
+        folder_row.addWidget(QLabel("Templates folder"))
+        folder_path = QLabel(f"~/.meeting_transcriber/templates/")
+        folder_path.setObjectName("caption")
+        folder_row.addWidget(folder_path)
+        open_folder_btn = QPushButton("Open Folder")
+        open_folder_btn.setFixedWidth(100)
+        open_folder_btn.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(TEMPLATES_DIR)))
+        )
+        folder_row.addWidget(open_folder_btn)
+        folder_row.addStretch()
+        layout.addLayout(folder_row)
+
+        tmpl_help = QLabel(
+            "Add custom templates by placing YAML files in the templates folder. "
+            "New files are loaded on next app launch."
+        )
+        tmpl_help.setObjectName("caption")
+        tmpl_help.setWordWrap(True)
+        layout.addWidget(tmpl_help)
+
+        layout.addStretch()
+        return tab
+
+    def _on_detection_toggled(self, checked: bool) -> None:
+        """감지 토글 변경 시 도움말 텍스트를 업데이트한다.
+
+        Args:
+            checked: 감지 활성화 여부
+        """
+        if checked:
+            self._detection_help.setText(
+                "Detect Zoom, Teams, Meet, and FaceTime to prompt recording."
+            )
+        else:
+            self._detection_help.setText("Meeting detection is off.")
+
     # -- 설정 로드/저장 --
 
     def _load_current_settings(self) -> None:
@@ -403,6 +507,18 @@ class SettingsDialog(QDialog):
         if idx >= 0:
             self._default_provider_combo.setCurrentIndex(idx)
 
+        # Detection
+        detection = s.get("detection", {})
+        det_enabled = detection.get("enabled", True)
+        self._detection_toggle.setChecked(det_enabled)
+
+        # Templates
+        templates_cfg = s.get("templates", {})
+        default_tmpl = templates_cfg.get("default", "general")
+        idx = self._default_template_combo.findData(default_tmpl)
+        if idx >= 0:
+            self._default_template_combo.setCurrentIndex(idx)
+
         # API Key (Keychain에서 존재 여부만 표시)
         existing = get_api_key("gemini")
         if existing:
@@ -434,6 +550,12 @@ class SettingsDialog(QDialog):
 
         s.setdefault("ai", {})
         s["ai"]["default_provider"] = self._default_provider_combo.currentData()
+
+        s.setdefault("detection", {})
+        s["detection"]["enabled"] = self._detection_toggle.isChecked()
+
+        s.setdefault("templates", {})
+        s["templates"]["default"] = self._default_template_combo.currentData()
 
         save_settings(s)
         self.settings_changed.emit(s)
