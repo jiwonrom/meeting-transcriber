@@ -25,13 +25,14 @@ def test_settings_dialog_has_tabs(qtbot: object) -> None:
         dialog = SettingsDialog()
         qtbot.addWidget(dialog)  # type: ignore[union-attr]
 
-    assert dialog._tabs.count() == 5
-    tab_texts = [dialog._tabs.tabText(i) for i in range(5)]
+    assert dialog._tabs.count() == 6
+    tab_texts = [dialog._tabs.tabText(i) for i in range(6)]
     assert "General" in tab_texts
     assert "Overlay" in tab_texts
     assert "Audio" in tab_texts
     assert "API Keys" in tab_texts
     assert "Speaker Identification" in tab_texts
+    assert "Detection" in tab_texts
 
 
 def test_settings_dialog_loads_defaults(qtbot: object) -> None:
