@@ -37,3 +37,7 @@ class SystemAudioError(MeetingTranscriberError):
 
 class DiarizationError(MeetingTranscriberError):
     """화자 분리 실행 중 오류 발생 (모델 미설치, 토큰 누락 등)."""
+
+
+class DetectionError(MeetingTranscriberError):
+    """회의 감지 관련 오류."""

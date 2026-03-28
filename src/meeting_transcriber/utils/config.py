@@ -1,4 +1,5 @@
 """설정 관리 — settings.json 로드/저장 (메모리 캐시 포함)."""
+
 from __future__ import annotations
 
 import json
@@ -39,6 +40,14 @@ def _default_settings() -> dict[str, Any]:
         "ai": {
             "default_provider": "gemini",
             "task_overrides": {},
+        },
+        "detection": {
+            "enabled": True,
+            "cooldown_seconds": 300,
+        },
+        "templates": {
+            "default": "general",
+            "directory": "",
         },
     }
 
