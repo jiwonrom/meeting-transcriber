@@ -41,3 +41,7 @@ class DiarizationError(MeetingTranscriberError):
 
 class DetectionError(MeetingTranscriberError):
     """회의 감지 관련 오류."""
+
+
+class AnalysisError(MeetingTranscriberError):
+    """교차 회의 분석 중 발생한 오류."""

@@ -68,3 +68,9 @@ KNOWN_CONFERENCING_APPS: dict[str, str] = {
     "com.tinyspeck.slackmacgap": "team_meeting",
 }
 CHROME_BUNDLE_ID = "com.google.Chrome"
+
+# 교차 회의 분석 (Cross-Meeting Analysis)
+ANALYSES_DIR = "analyses"
+INDEX_FILE = "index.json"
+INDEX_VERSION = "1.0"
+MIN_SELECTION_COUNT = 2
