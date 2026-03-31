@@ -47,8 +47,8 @@
 ### Cross-Meeting Analysis
 
 - [ ] **CMA-01**: User can select multiple transcripts for combined analysis
-- [ ] **CMA-02**: AI generates cross-meeting summary highlighting recurring topics and action items
-- [ ] **CMA-03**: Lightweight transcript index maintains searchable metadata without loading full files
+- [x] **CMA-02**: AI generates cross-meeting summary highlighting recurring topics and action items
+- [x] **CMA-03**: Lightweight transcript index maintains searchable metadata without loading full files
 
 ## v3.0 Requirements (Deferred)
 
@@ -95,8 +95,8 @@
 | DET-01 | Phase 4 | Complete |
 | DET-02 | Phase 4 | Complete |
 | CMA-01 | Phase 5 | Pending |
-| CMA-02 | Phase 5 | Pending |
-| CMA-03 | Phase 5 | Pending |
+| CMA-02 | Phase 5 | Complete |
+| CMA-03 | Phase 5 | Complete |
 
 ---
 *Defined: 2026-03-27 from PRD §4.3 + research findings*

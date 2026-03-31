@@ -104,7 +104,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Backend foundation: MetadataIndex, AnalysisStore, AIProvider extension, CrossMeetingAnalysisWorker
+- [x] 05-01-PLAN.md — Backend foundation: MetadataIndex, AnalysisStore, AIProvider extension, CrossMeetingAnalysisWorker
 - [ ] 05-02-PLAN.md — Sidebar selection mode: checkboxes, folder propagation, action bar, Analyses section
 - [ ] 05-03-PLAN.md — Integration wiring: MainWindow analysis display, app.py signals, index hooks, Markdown export
 
