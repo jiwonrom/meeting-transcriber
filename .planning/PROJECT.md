@@ -41,10 +41,10 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 - ✓ Custom YAML template support — Validated in Phase 4: Meeting Intelligence
 - ✓ Auto meeting detection (Zoom, Teams, Meet, FaceTime) — Validated in Phase 4: Meeting Intelligence
 - ✓ Recording prompt via macOS notification with snooze — Validated in Phase 4: Meeting Intelligence
+- ✓ Cross-meeting analysis (multi-transcript selection, AI insights, metadata index) — Validated in Phase 5: Cross-Meeting Analysis
 
 ### Active
 
-- [ ] Cross-meeting analysis (multi-transcript insights)
 - [ ] Notion export integration
 
 ### Out of Scope
@@ -59,8 +59,8 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 
 - **Codebase**: ~30 Python files across 5 modules (ui, core, ai, storage, utils)
 - **Architecture**: Strict unidirectional deps (ui→core, ui→ai, ai→storage), Signal/Slot for reverse communication
-- **Current state**: Phase 4 complete with 339 passing tests, meeting intelligence operational
-- **Key tech debt**: MainWindow god object (900+ lines), no file import UI, SidebarWidget unused
+- **Current state**: Phase 5 complete with 363 passing tests, all v2.0 phases done
+- **Key tech debt**: MainWindow god object (1000+ lines), no file import UI
 - **PRD**: Detailed v2.0 scope in PRD.md §4.3
 
 ## Constraints
@@ -100,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-28 after Phase 4 completion*
+*Last updated: 2026-03-31 after Phase 5 completion*
