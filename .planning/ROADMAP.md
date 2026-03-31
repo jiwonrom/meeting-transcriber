@@ -101,7 +101,13 @@ Plans:
   1. User can select two or more transcripts from the sidebar and initiate a combined analysis
   2. AI generates a cross-meeting summary that highlights recurring topics, unresolved action items, and decision evolution
   3. App maintains a lightweight searchable index of transcript metadata so cross-meeting queries respond without loading full transcript files
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Backend foundation: MetadataIndex, AnalysisStore, AIProvider extension, CrossMeetingAnalysisWorker
+- [ ] 05-02-PLAN.md — Sidebar selection mode: checkboxes, folder propagation, action bar, Analyses section
+- [ ] 05-03-PLAN.md — Integration wiring: MainWindow analysis display, app.py signals, index hooks, Markdown export
+
 **UI hint**: yes
 
 ## Progress
@@ -114,5 +120,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Export & Multi-Provider | 3/3 | Complete | - |
 | 2. System Audio Capture | 2/3 | In Progress| |
 | 3. Speaker Diarization | 3/3 | Complete | - |
-| 4. Meeting Intelligence | 0/3 | Planning | - |
-| 5. Cross-Meeting Analysis | 0/TBD | Not started | - |
+| 4. Meeting Intelligence | 3/3 | Complete | - |
+| 5. Cross-Meeting Analysis | 0/3 | Planning | - |
