@@ -219,3 +219,27 @@ class FallbackProvider(AIProvider):
     def generate_title(self, text: str) -> str:
         """텍스트로 짧은 제목을 생성한다 (폴백 지원)."""
         return self._call_with_fallback("generate_title", text)
+
+    def analyze_cross_meeting(
+        self,
+        transcripts: list[dict[str, Any]],
+        *,
+        language: str = "auto",
+        custom_query: str | None = None,
+    ) -> str:
+        """여러 회의 트랜스크립트를 교차 분석한다 (폴백 지원).
+
+        Args:
+            transcripts: 트랜스크립트 딕셔너리 리스트
+            language: 출력 언어
+            custom_query: 사용자 추가 질문
+
+        Returns:
+            분석 결과 JSON 문자열
+        """
+        return self._call_with_fallback(
+            "analyze_cross_meeting",
+            transcripts,
+            language=language,
+            custom_query=custom_query,
+        )

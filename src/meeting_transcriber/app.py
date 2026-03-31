@@ -24,6 +24,7 @@ from meeting_transcriber.ui.main_window import MainWindow
 from meeting_transcriber.ui.onboarding import OnboardingWizard
 from meeting_transcriber.ui.overlay import OverlayWidget
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
+from meeting_transcriber.ui.sidebar import SidebarWidget
 from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.ui.tray import TrayIcon
 from meeting_transcriber.utils.config import load_settings, save_settings
@@ -86,6 +87,18 @@ def main() -> None:
 
     # 메인 윈도우
     window = MainWindow(workspace=workspace)
+
+    # 사이드바 (교차 회의 분석 등)
+    sidebar = SidebarWidget(workspace=workspace)
+    sidebar.analysis_requested.connect(window._on_analysis_requested)
+    sidebar.analysis_selected.connect(window._on_analysis_selected)
+    sidebar.transcript_selected.connect(
+        lambda path: (
+            window._transcript_viewer.display_transcript(path),
+            window._empty_state.hide(),
+            window._transcript_viewer.show(),
+        )
+    )
 
     # Aggregate Device lifecycle management
     # Private Aggregate Devices (isPrivate=1) are process-scoped and destroyed on exit.

@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -31,6 +32,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from meeting_transcriber.ai.templates import TemplateManager
 from meeting_transcriber.core.audio_capture import AudioCaptureWorker, encode_wav_chunk
 from meeting_transcriber.core.system_audio import (
     is_blackhole_installed,
@@ -49,7 +51,6 @@ from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.ui.widgets.dual_level_meter import DualLevelMeter
 from meeting_transcriber.ui.widgets.toggle_switch import SystemAudioToggle
 from meeting_transcriber.utils.config import load_settings, save_settings
-from meeting_transcriber.ai.templates import TemplateManager
 from meeting_transcriber.utils.constants import (
     APP_NAME,
     BUILTIN_TEMPLATE_NAMES,
@@ -763,6 +764,10 @@ class MainWindow(QMainWindow):
         self._realtime_segments: list[dict[str, Any]] = []
         self._chunk_count = 0
         self._is_recording = False
+        self._analysis_worker: Any = None
+        self._metadata_index: Any = None
+        self._current_analysis_path: str | None = None
+        self._export_analysis_btn: QPushButton | None = None
 
         self.setWindowTitle(APP_NAME)
         self.setMinimumSize(800, 520)
@@ -777,6 +782,9 @@ class MainWindow(QMainWindow):
         self._template_manager.ensure_templates()
         self._template_manager.load_all()
         self._populate_template_combos()
+
+        # 메타데이터 인덱스 초기화
+        self._init_metadata_index()
 
         # System audio state init
         self._recording_with_system_audio = False
@@ -1091,7 +1099,9 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            self._workspace.delete_recording(pathlib.Path(path_str))
+            self._workspace.delete_recording(
+                pathlib.Path(path_str), index=self._metadata_index
+            )
         except (ValueError, FileNotFoundError, OSError):
             self._status_bar.showMessage("Failed to delete recording", 3000)
             return
@@ -1350,7 +1360,7 @@ class MainWindow(QMainWindow):
 
         folder = self._workspace.root / "Work" / safe_title
         folder.mkdir(parents=True, exist_ok=True)
-        save_transcript(transcript, folder / "transcript.json")
+        save_transcript(transcript, folder / "transcript.json", index=self._metadata_index)
 
         # 오디오 파일 보존 — diarization에 필요
         audio_dest = folder / "recording.wav"
@@ -1472,7 +1482,7 @@ class MainWindow(QMainWindow):
             if ai_result.title:
                 metadata["title"] = ai_result.title
 
-            save_transcript(transcript, transcript_path)
+            save_transcript(transcript, transcript_path, index=self._metadata_index)
             self._refresh_recording_list()
             self._status_bar.showMessage("AI processing complete")
 
@@ -1562,7 +1572,7 @@ class MainWindow(QMainWindow):
                                 meta["summary"] = ai_result.summary
                         else:
                             meta["summary"] = ai_result.summary
-                    save_transcript(t, transcript_path)
+                    save_transcript(t, transcript_path, index=self._metadata_index)
                     self._status_bar.showMessage(f"{template_name} summary generated")
                     self._transcript_viewer._rerun_ai_btn.setText("Re-run AI")
                     self._transcript_viewer._rerun_ai_btn.setEnabled(True)
@@ -1691,6 +1701,301 @@ class MainWindow(QMainWindow):
         )
         self._diarization_worker.start()
         self._status_bar.showMessage("Identifying speakers...")
+
+    # -- 메타데이터 인덱스 --
+
+    def _init_metadata_index(self) -> None:
+        """메타데이터 인덱스를 초기화한다."""
+        from meeting_transcriber.storage.metadata_index import MetadataIndex
+
+        try:
+            self._metadata_index = MetadataIndex(self._workspace.root)
+        except Exception:
+            logger.warning("Failed to initialize MetadataIndex", exc_info=True)
+            self._metadata_index = None
+
+    # -- 교차 회의 분석 --
+
+    def _on_analysis_requested(self, transcript_paths: list[str]) -> None:
+        """사이드바에서 교차 회의 분석을 요청한다.
+
+        Args:
+            transcript_paths: 선택된 transcript 파일 경로 리스트
+        """
+        # 사용자 커스텀 쿼리 입력
+        custom_query, ok = QInputDialog.getText(
+            self, "Cross-Meeting Analysis", "Custom query (optional):"
+        )
+        if not ok:
+            custom_query = ""
+
+        # 진행 표시
+        self._transcript_viewer._summary_edit.setPlainText(
+            f"Analyzing {len(transcript_paths)} transcripts..."
+        )
+        self._empty_state.hide()
+        self._transcript_viewer.show()
+        self._transcript_viewer._tabs.setCurrentIndex(2)  # Summary 탭
+
+        # Transcript 로드
+        loaded: list[dict[str, Any]] = []
+        for p in transcript_paths:
+            try:
+                loaded.append(load_transcript(pathlib.Path(p)))
+            except Exception:
+                logger.warning("Failed to load transcript for analysis: %s", p)
+
+        if not loaded:
+            self._status_bar.showMessage("No transcripts could be loaded")
+            return
+
+        # 다수 언어 결정
+        lang_counts: dict[str, int] = {}
+        for t in loaded:
+            for lang in t.get("metadata", {}).get("languages", []):
+                lang_counts[lang] = lang_counts.get(lang, 0) + 1
+        majority_lang = max(lang_counts, key=lang_counts.get) if lang_counts else "auto"  # type: ignore[arg-type]
+
+        # 동시 실행 방지
+        if self._analysis_worker is not None and self._analysis_worker.isRunning():
+            self._status_bar.showMessage("Analysis already in progress")
+            return
+
+        # Provider 생성
+        from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+
+        settings = load_settings()
+        manager = ProviderManager()
+        try:
+            chain = manager.get_provider_chain(settings)
+        except Exception:
+            self._status_bar.showMessage("AI provider not configured")
+            return
+        if not chain:
+            self._status_bar.showMessage("No API keys configured")
+            return
+
+        provider = FallbackProvider(manager, chain)
+
+        from meeting_transcriber.ai.cross_meeting import CrossMeetingAnalysisWorker
+
+        self._analysis_worker = CrossMeetingAnalysisWorker(
+            provider=provider,
+            transcripts=loaded,
+            transcript_paths=transcript_paths,
+            language=majority_lang,
+            custom_query=custom_query or None,
+            parent=self,
+        )
+        self._analysis_worker.progress.connect(
+            lambda msg: self._status_bar.showMessage(msg)
+        )
+        self._analysis_worker.finished.connect(self._on_analysis_finished)
+        self._analysis_worker.start()
+
+    def _on_analysis_finished(self, result: Any) -> None:
+        """교차 회의 분석 완료 처리.
+
+        Args:
+            result: CrossMeetingResult 인스턴스
+        """
+        from meeting_transcriber.storage.analysis_store import save_analysis
+
+        # 분석 결과 딕셔너리 구성
+        analysis_dict: dict[str, Any] = {
+            "version": "1.0",
+            "created_at": datetime.now(tz=UTC).isoformat(),
+            "transcript_paths": result.transcript_paths,
+            "transcript_count": result.transcript_count,
+            "custom_query": result.custom_query,
+            "language": result.language,
+            "result": {
+                "recurring_topics": result.recurring_topics,
+                "action_items": result.action_items,
+                "timeline": result.timeline,
+                "custom_answer": result.custom_answer,
+            },
+        }
+
+        # 저장
+        try:
+            saved_path = save_analysis(analysis_dict, self._workspace.root)
+            self._current_analysis_path = str(saved_path)
+        except Exception as e:
+            logger.warning("Failed to save analysis: %s", e, exc_info=True)
+            self._current_analysis_path = None
+
+        # 결과 표시
+        self._display_analysis_result(result)
+
+        # 상태 메시지
+        if result.errors:
+            self._status_bar.showMessage(f"Analysis complete with errors: {result.errors[0]}")
+        else:
+            self._status_bar.showMessage("Analysis complete")
+
+        # 사이드바 갱신 (Analyses 섹션 반영)
+        self._refresh_recording_list()
+
+        # 워커 정리
+        self._analysis_worker = None
+
+    def _display_analysis_result(self, result: Any) -> None:
+        """분석 결과를 TranscriptViewer에 HTML로 표시한다.
+
+        Args:
+            result: CrossMeetingResult 인스턴스
+        """
+        html_parts: list[str] = []
+
+        # Header
+        html_parts.append(
+            f'<h2 style="font-size: 18px; font-weight: 600; margin-bottom: 12px;">'
+            f"Cross-Meeting Analysis ({result.transcript_count} meetings)</h2>"
+        )
+
+        # Recurring Topics
+        if result.recurring_topics:
+            html_parts.append(
+                '<h3 style="font-size: 16px; font-weight: 600; '
+                'margin: 16px 0 8px 0;">Recurring Topics</h3>'
+            )
+            for topic in result.recurring_topics:
+                name = topic.get("name", "")
+                freq = topic.get("frequency", 0)
+                meetings = ", ".join(topic.get("meetings", []))
+                html_parts.append(
+                    f'<p style="margin: 4px 0;"><b>{name}</b> ({freq}x) -- {meetings}</p>'
+                )
+
+        # Action Items
+        if result.action_items:
+            html_parts.append(
+                '<h3 style="font-size: 16px; font-weight: 600; '
+                'margin: 16px 0 8px 0;">Action Items</h3>'
+            )
+            html_parts.append('<ul style="margin: 0; padding-left: 20px;">')
+            for item in result.action_items:
+                text = item.get("item", "")
+                status = item.get("status", "unresolved")
+                assignee = item.get("assignee", "")
+                meeting = item.get("meeting", "")
+                icon = "&#9745;" if status == "resolved" else "&#9744;"
+                line = f"{icon} {text}"
+                if assignee:
+                    line += f' <span style="color: #666;">(@{assignee})</span>'
+                if meeting:
+                    line += f' <span style="color: #888;">-- {meeting}</span>'
+                html_parts.append(f'<li style="margin: 4px 0;">{line}</li>')
+            html_parts.append("</ul>")
+
+        # Timeline
+        if result.timeline:
+            html_parts.append(
+                '<h3 style="font-size: 16px; font-weight: 600; '
+                'margin: 16px 0 8px 0;">Timeline</h3>'
+            )
+            for entry in result.timeline:
+                date = entry.get("date", "")
+                meeting = entry.get("meeting", "")
+                topic = entry.get("topic", "")
+                detail = entry.get("detail", "")
+                html_parts.append(
+                    f'<p style="margin: 4px 0;"><b>{date}</b> [{meeting}] '
+                    f"{topic}: {detail}</p>"
+                )
+
+        # Custom Answer
+        if result.custom_answer:
+            html_parts.append(
+                '<h3 style="font-size: 16px; font-weight: 600; '
+                'margin: 16px 0 8px 0;">Custom Query Answer</h3>'
+            )
+            html_parts.append(f'<p style="margin: 4px 0;">{result.custom_answer}</p>')
+
+        self._transcript_viewer._summary_edit.setHtml("".join(html_parts))
+
+        # 분석된 transcript 목록 표시
+        paths_text = "\n".join(result.transcript_paths)
+        self._transcript_viewer._original_edit.setPlainText(
+            f"Analyzed {result.transcript_count} transcripts:\n\n{paths_text}"
+        )
+        self._transcript_viewer._title_label.setText("Cross-Meeting Analysis")
+        self._transcript_viewer._meta_label.setText(
+            f"{result.transcript_count} transcripts"
+        )
+
+        # Export 버튼 표시
+        if self._export_analysis_btn is None:
+            self._export_analysis_btn = QPushButton("Export as Markdown")
+            self._export_analysis_btn.setFixedWidth(180)
+            self._export_analysis_btn.clicked.connect(self._export_current_analysis)
+            # Summary 탭의 레이아웃에 추가
+            summary_tab = self._transcript_viewer._tabs.widget(2)
+            if summary_tab is not None:
+                tab_layout = summary_tab.layout()
+                if tab_layout is not None:
+                    tab_layout.addWidget(self._export_analysis_btn)
+        self._export_analysis_btn.setVisible(True)
+
+    def _on_analysis_selected(self, analysis_path: str) -> None:
+        """사이드바에서 저장된 분석을 선택한다.
+
+        Args:
+            analysis_path: 분석 결과 파일 경로
+        """
+        from meeting_transcriber.ai.cross_meeting import CrossMeetingResult
+        from meeting_transcriber.storage.analysis_store import load_analysis
+
+        try:
+            analysis_dict = load_analysis(pathlib.Path(analysis_path))
+        except Exception as e:
+            self._status_bar.showMessage(f"Failed to load analysis: {e}")
+            return
+
+        res = analysis_dict.get("result", {})
+        result = CrossMeetingResult(
+            recurring_topics=res.get("recurring_topics", []),
+            action_items=res.get("action_items", []),
+            timeline=res.get("timeline", []),
+            custom_answer=res.get("custom_answer", ""),
+            transcript_paths=analysis_dict.get("transcript_paths", []),
+            transcript_count=analysis_dict.get("transcript_count", 0),
+            custom_query=analysis_dict.get("custom_query", ""),
+            language=analysis_dict.get("language", "auto"),
+        )
+
+        self._empty_state.hide()
+        self._transcript_viewer.show()
+        self._transcript_viewer._tabs.setCurrentIndex(2)
+        self._display_analysis_result(result)
+        self._current_analysis_path = analysis_path
+
+    def _export_current_analysis(self) -> None:
+        """현재 표시 중인 분석을 Markdown으로 내보낸다."""
+        if self._current_analysis_path is None:
+            return
+
+        from meeting_transcriber.storage.analysis_store import load_analysis
+        from meeting_transcriber.storage.exporter import export_analysis_to_markdown, save_export
+
+        try:
+            analysis_dict = load_analysis(pathlib.Path(self._current_analysis_path))
+        except Exception as e:
+            self._status_bar.showMessage(f"Failed to load analysis: {e}")
+            return
+
+        markdown = export_analysis_to_markdown(analysis_dict)
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Analysis",
+            "cross_meeting_analysis.md",
+            "Markdown (*.md)",
+        )
+        if path:
+            save_export(markdown, pathlib.Path(path))
+            self._status_bar.showMessage("Analysis exported")
 
     # -- 프로퍼티 --
 

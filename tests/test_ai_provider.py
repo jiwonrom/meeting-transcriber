@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,6 +32,15 @@ class MockProvider(AIProvider):
 
     def generate_title(self, text: str) -> str:
         return "Weekly Standup Meeting"
+
+    def analyze_cross_meeting(
+        self,
+        transcripts: list[dict[str, Any]],
+        *,
+        language: str = "auto",
+        custom_query: str | None = None,
+    ) -> str:
+        return '{"recurring_topics": [], "action_items": [], "timeline": []}'
 
 
 # -- Provider Base 테스트 --
@@ -348,6 +358,15 @@ class FailingMockProvider(AIProvider):
         raise RuntimeError("FailingMockProvider error")
 
     def generate_title(self, text: str) -> str:
+        raise RuntimeError("FailingMockProvider error")
+
+    def analyze_cross_meeting(
+        self,
+        transcripts: list[dict[str, Any]],
+        *,
+        language: str = "auto",
+        custom_query: str | None = None,
+    ) -> str:
         raise RuntimeError("FailingMockProvider error")
 
 
