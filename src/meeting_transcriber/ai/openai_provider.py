@@ -2,10 +2,53 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from openai import OpenAI
 
 from meeting_transcriber.ai.provider_base import AIProvider
 from meeting_transcriber.utils.keychain import get_api_key
+
+
+def _build_analysis_prompt(
+    transcripts: list[dict[str, Any]],
+    *,
+    custom_query: str | None = None,
+    language: str = "auto",
+) -> str:
+    """교차 회의 분석용 프롬프트를 생성한다.
+
+    Args:
+        transcripts: 트랜스크립트 딕셔너리 리스트
+        custom_query: 사용자 추가 질문
+        language: 출력 언어
+
+    Returns:
+        프롬프트 문자열
+    """
+    parts: list[str] = [
+        "Analyze the following meeting transcripts and produce a structured analysis.",
+        "Output JSON with these exact sections:",
+        '- "recurring_topics": array of {name: string, meetings: [string], frequency: number}',
+        '- "action_items": array of {item: string, meeting: string, '
+        'status: "resolved"|"unresolved", assignee: string}',
+        '- "timeline": array of {date: string, meeting: string, topic: string, '
+        "detail: string}",
+    ]
+    if custom_query:
+        parts.append(f'\nAlso answer this question: "{custom_query}"')
+        parts.append('Include the answer in a "custom_answer" string field.')
+    if language != "auto":
+        parts.append(f"\nRespond in {language}.")
+    for i, t in enumerate(transcripts, 1):
+        meta = t.get("metadata", {})
+        title = meta.get("title", f"Meeting {i}")
+        date = str(meta.get("created_at", "unknown"))[:10]
+        segments = t.get("segments", [])
+        text = " ".join(seg.get("text", "") for seg in segments)
+        parts.append(f"\n--- MEETING {i}: {title} ({date}) ---")
+        parts.append(text)
+    return "\n".join(parts)
 
 
 class OpenAIProvider(AIProvider):
@@ -112,3 +155,31 @@ class OpenAIProvider(AIProvider):
         )
         title = self._call(prompt)
         return title[:50]
+
+    def analyze_cross_meeting(
+        self,
+        transcripts: list[dict[str, Any]],
+        *,
+        language: str = "auto",
+        custom_query: str | None = None,
+    ) -> str:
+        """여러 회의 트랜스크립트를 교차 분석한다.
+
+        Args:
+            transcripts: 트랜스크립트 딕셔너리 리스트
+            language: 출력 언어
+            custom_query: 사용자 추가 질문
+
+        Returns:
+            JSON 문자열
+        """
+        prompt = _build_analysis_prompt(
+            transcripts, custom_query=custom_query, language=language
+        )
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+        )
+        content: str = response.choices[0].message.content
+        return content.strip()

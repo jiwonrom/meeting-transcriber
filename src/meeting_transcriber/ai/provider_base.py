@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class AIProvider(ABC):
@@ -71,4 +72,23 @@ class AIProvider(ABC):
 
         Returns:
             생성된 제목 (최대 50자)
+        """
+
+    @abstractmethod
+    def analyze_cross_meeting(
+        self,
+        transcripts: list[dict[str, Any]],
+        *,
+        language: str = "auto",
+        custom_query: str | None = None,
+    ) -> str:
+        """여러 회의 트랜스크립트를 교차 분석한다.
+
+        Args:
+            transcripts: 트랜스크립트 딕셔너리 리스트 (각각 segments, metadata 포함)
+            language: 출력 언어 (auto면 다수 언어 사용)
+            custom_query: 사용자 추가 질문
+
+        Returns:
+            JSON 문자열 (recurring_topics, action_items, timeline 섹션)
         """
