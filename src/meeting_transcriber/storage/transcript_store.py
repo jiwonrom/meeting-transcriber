@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 import pathlib
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from meeting_transcriber.storage.metadata_index import MetadataIndex
 
 
 def create_transcript(
@@ -66,12 +69,18 @@ def create_transcript(
     }
 
 
-def save_transcript(transcript: dict[str, Any], path: pathlib.Path) -> pathlib.Path:
+def save_transcript(
+    transcript: dict[str, Any],
+    path: pathlib.Path,
+    *,
+    index: MetadataIndex | None = None,
+) -> pathlib.Path:
     """transcript를 JSON 파일로 저장한다.
 
     Args:
         transcript: transcript 딕셔너리
         path: 저장할 파일 경로
+        index: 메타데이터 인덱스. 제공 시 엔트리를 갱신한다.
 
     Returns:
         저장된 파일의 경로
@@ -79,6 +88,8 @@ def save_transcript(transcript: dict[str, Any], path: pathlib.Path) -> pathlib.P
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(transcript, f, indent=2, ensure_ascii=False)
+    if index is not None:
+        index.update_entry(path, transcript)
     return path
 
 

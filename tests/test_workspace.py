@@ -1,4 +1,5 @@
 """workspace 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import pathlib
@@ -190,6 +191,37 @@ def test_delete_recording_not_found(workspace: WorkspaceManager) -> None:
     fake_path = workspace.root / "Work" / "ghost" / "transcript.json"
     with pytest.raises(FileNotFoundError):
         workspace.delete_recording(fake_path)
+
+
+def test_delete_recording_updates_index(tmp_path: pathlib.Path) -> None:
+    """delete_recording에 index 전달 시 엔트리가 삭제되는지 확인."""
+    ws_dir = tmp_path / "workspace"
+    ws_dir.mkdir()
+    ws = WorkspaceManager(workspace_dir=ws_dir)
+
+    folder = ws.create_folder("Work")
+    recording = folder / "rec-001"
+    recording.mkdir()
+    transcript_path = recording / "transcript.json"
+
+    import json
+
+    transcript = {
+        "version": "1.0",
+        "metadata": {"title": "Test", "created_at": "", "duration_seconds": 0, "languages": []},
+        "segments": [],
+    }
+    transcript_path.write_text(json.dumps(transcript))
+
+    from meeting_transcriber.storage.metadata_index import MetadataIndex
+
+    index = MetadataIndex(ws_dir)
+    index.update_entry(transcript_path, transcript)
+    assert index.get_entry(transcript_path) is not None
+
+    ws.delete_recording(transcript_path, index=index)
+    assert index.get_entry(transcript_path) is None
+    assert not recording.exists()
 
 
 def test_ignored_dirs_not_listed(workspace: WorkspaceManager) -> None:

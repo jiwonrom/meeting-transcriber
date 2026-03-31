@@ -1,10 +1,15 @@
 """워크스페이스 폴더 구조 관리 — 파일시스템 1:1 대응."""
+
 from __future__ import annotations
 
 import pathlib
 import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from meeting_transcriber.storage.metadata_index import MetadataIndex
 
 from meeting_transcriber.utils.config import ensure_workspace
 from meeting_transcriber.utils.constants import DEFAULT_WORKSPACE_DIR
@@ -64,12 +69,14 @@ class WorkspaceManager:
             stat = entry.stat()
             created = datetime.fromtimestamp(stat.st_birthtime, tz=UTC).isoformat()
 
-            folders.append(FolderInfo(
-                name=entry.name,
-                path=entry,
-                transcript_count=transcripts,
-                created_at=created,
-            ))
+            folders.append(
+                FolderInfo(
+                    name=entry.name,
+                    path=entry,
+                    transcript_count=transcripts,
+                    created_at=created,
+                )
+            )
 
         return folders
 
@@ -162,11 +169,17 @@ class WorkspaceManager:
 
         shutil.rmtree(folder_path)
 
-    def delete_recording(self, transcript_path: pathlib.Path) -> None:
+    def delete_recording(
+        self,
+        transcript_path: pathlib.Path,
+        *,
+        index: MetadataIndex | None = None,
+    ) -> None:
         """녹음 디렉토리를 삭제한다.
 
         Args:
             transcript_path: transcript.json 파일 경로
+            index: 메타데이터 인덱스. 제공 시 엔트리를 삭제한다.
 
         Raises:
             ValueError: 워크스페이스 외부 경로일 때
@@ -177,6 +190,8 @@ class WorkspaceManager:
             raise ValueError("Path is outside workspace")
         if not recording_dir.is_dir():
             raise FileNotFoundError(f"Recording not found: {recording_dir}")
+        if index is not None:
+            index.remove_entry(transcript_path)
         shutil.rmtree(recording_dir)
 
     def ensure_default_folders(self) -> None:

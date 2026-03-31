@@ -421,6 +421,77 @@ def export_to_obsidian(transcript: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def export_analysis_to_markdown(analysis: dict[str, Any]) -> str:
+    """교차 회의 분석 결과를 Markdown으로 변환한다.
+
+    Args:
+        analysis: 분석 결과 딕셔너리 (result, transcript_paths, created_at 등)
+
+    Returns:
+        Markdown 형식 문자열
+    """
+    parts: list[str] = []
+    created = analysis.get("created_at", "")[:10]
+    count = analysis.get("transcript_count", 0)
+    parts.append("# Cross-Meeting Analysis")
+    parts.append(f"\n**Date:** {created}")
+    parts.append(f"**Transcripts analyzed:** {count}\n")
+
+    result = analysis.get("result", {})
+
+    # Recurring Topics
+    topics = result.get("recurring_topics", [])
+    if topics:
+        parts.append("## Recurring Topics\n")
+        for t in topics:
+            name = t.get("name", "")
+            freq = t.get("frequency", 0)
+            meetings = ", ".join(t.get("meetings", []))
+            parts.append(f"### {name} ({freq}x)\n")
+            parts.append(f"Meetings: {meetings}\n")
+
+    # Action Items
+    items = result.get("action_items", [])
+    if items:
+        parts.append("## Action Items\n")
+        for item in items:
+            status = item.get("status", "unresolved")
+            checkbox = "[x]" if status == "resolved" else "[ ]"
+            text = item.get("item", "")
+            assignee = item.get("assignee", "")
+            meeting = item.get("meeting", "")
+            line = f"- {checkbox} {text}"
+            if assignee:
+                line += f" (@{assignee})"
+            if meeting:
+                line += f" -- {meeting}"
+            parts.append(line)
+        parts.append("")
+
+    # Timeline
+    timeline = result.get("timeline", [])
+    if timeline:
+        parts.append("## Timeline\n")
+        for entry in timeline:
+            date = entry.get("date", "")
+            meeting = entry.get("meeting", "")
+            topic = entry.get("topic", "")
+            detail = entry.get("detail", "")
+            parts.append(f"- **{date}** [{meeting}] {topic}: {detail}")
+        parts.append("")
+
+    # Custom answer
+    custom = result.get("custom_answer", "")
+    if custom:
+        query = analysis.get("custom_query", "")
+        parts.append("## Custom Query\n")
+        if query:
+            parts.append(f"**Q:** {query}\n")
+        parts.append(f"**A:** {custom}\n")
+
+    return "\n".join(parts)
+
+
 def obsidian_filename(transcript: dict[str, Any]) -> str:
     """Obsidian 호환 파일명을 생성한다.
 
