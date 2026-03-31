@@ -1,13 +1,15 @@
 """사이드바 폴더 트리 위젯 — QTreeView 기반 파일시스템 브라우저."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from PyQt6.QtCore import QFileSystemWatcher, QModelIndex, Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QStandardItem, QStandardItemModel
+from PyQt6.QtGui import QAction, QFont, QStandardItem, QStandardItemModel
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
+    QLabel,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -17,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from meeting_transcriber.storage.workspace import WorkspaceManager
+from meeting_transcriber.utils.constants import ANALYSES_DIR, MIN_SELECTION_COUNT
 
 
 class SidebarWidget(QWidget):
@@ -24,6 +27,7 @@ class SidebarWidget(QWidget):
 
     워크스페이스 폴더를 QTreeView로 표시하고, CRUD 작업을 지원한다.
     QFileSystemWatcher로 외부 변경을 감지한다.
+    Selection 모드로 다중 transcript를 선택하여 크로스 미팅 분석을 수행할 수 있다.
     """
 
     folder_selected = pyqtSignal(str)
@@ -31,6 +35,8 @@ class SidebarWidget(QWidget):
     folder_created = pyqtSignal(str)
     folder_renamed = pyqtSignal(str, str)
     folder_deleted = pyqtSignal(str)
+    analysis_requested = pyqtSignal(list)
+    analysis_selected = pyqtSignal(str)
 
     def __init__(
         self,
@@ -53,6 +59,14 @@ class SidebarWidget(QWidget):
         self._watcher = QFileSystemWatcher()
         self._watcher.directoryChanged.connect(self._on_directory_changed)
 
+        self._selection_mode: bool = False
+        self._action_bar: QWidget | None = None
+        self._action_label: QLabel | None = None
+        self._analyze_btn: QPushButton | None = None
+        self._select_btn: QPushButton | None = None
+        self._select_all_btn: QPushButton | None = None
+        self._cancel_btn: QPushButton | None = None
+
         self._setup_ui()
         self.refresh()
 
@@ -69,6 +83,22 @@ class SidebarWidget(QWidget):
         self._new_folder_btn = QPushButton("+ New Folder")
         self._new_folder_btn.clicked.connect(self._on_new_folder_clicked)
         toolbar.addWidget(self._new_folder_btn)
+
+        self._select_btn = QPushButton("Select")
+        self._select_btn.clicked.connect(self._on_select_btn_clicked)
+        toolbar.addWidget(self._select_btn)
+
+        # Selection 모드 버튼 (초기 숨김)
+        self._select_all_btn = QPushButton("Select All")
+        self._select_all_btn.clicked.connect(self._on_select_all_clicked)
+        self._select_all_btn.setVisible(False)
+        toolbar.addWidget(self._select_all_btn)
+
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.clicked.connect(self._on_cancel_clicked)
+        self._cancel_btn.setVisible(False)
+        toolbar.addWidget(self._cancel_btn)
+
         toolbar.addStretch()
 
         layout.addLayout(toolbar)
@@ -84,6 +114,22 @@ class SidebarWidget(QWidget):
 
         layout.addWidget(self._tree)
 
+        # 액션 바 (초기 숨김)
+        self._action_bar = QWidget()
+        action_layout = QHBoxLayout(self._action_bar)
+        action_layout.setContentsMargins(8, 4, 8, 4)
+
+        self._action_label = QLabel("")
+        action_layout.addWidget(self._action_label)
+        action_layout.addStretch()
+
+        self._analyze_btn = QPushButton("Analyze")
+        self._analyze_btn.clicked.connect(self._on_analyze_clicked)
+        action_layout.addWidget(self._analyze_btn)
+
+        self._action_bar.setVisible(False)
+        layout.addWidget(self._action_bar)
+
     @property
     def tree_view(self) -> QTreeView:
         """내부 QTreeView 인스턴스."""
@@ -91,6 +137,11 @@ class SidebarWidget(QWidget):
 
     def refresh(self) -> None:
         """폴더 목록을 다시 로드하여 트리를 갱신한다."""
+        # Selection 모드 시 선택 상태 보존
+        checked_paths: set[str] = set()
+        if self._selection_mode:
+            checked_paths = set(self._get_checked_transcript_paths())
+
         self._model.clear()
         self._model.setHorizontalHeaderLabels(["Folders"])
 
@@ -118,6 +169,294 @@ class SidebarWidget(QWidget):
             self._model.appendRow(item)
             self._watcher.addPath(str(folder.path))
 
+        # Analyses 섹션 추가
+        self._add_analyses_section()
+
+        # Selection 모드 재적용
+        if self._selection_mode:
+            self._apply_checkable_state()
+            self._restore_checked_paths(checked_paths)
+
+    def _add_analyses_section(self) -> None:
+        """Analyses 섹션을 트리 하단에 추가한다."""
+        header = QStandardItem("Analyses")
+        bold_font = QFont()
+        bold_font.setBold(True)
+        header.setFont(bold_font)
+        header.setEditable(False)
+        header.setData("analyses_header", Qt.ItemDataRole.UserRole + 1)
+
+        analyses_dir = self._workspace.root / ANALYSES_DIR
+        if analyses_dir.exists():
+            for path in sorted(analyses_dir.glob("analysis_*.json")):
+                name = path.stem  # "analysis_2026-03-31_140005"
+                # analysis_ 프리픽스 제거 및 포맷팅
+                display = name.replace("analysis_", "").replace("_", " ")
+                child = QStandardItem(display)
+                child.setData(str(path), Qt.ItemDataRole.UserRole)
+                child.setData("analysis", Qt.ItemDataRole.UserRole + 1)
+                child.setEditable(False)
+                header.appendRow(child)
+
+        self._model.appendRow(header)
+
+    # ============================================================
+    # Selection 모드 메서드
+    # ============================================================
+
+    def _on_select_btn_clicked(self) -> None:
+        """Select 버튼 클릭 핸들러."""
+        self._enter_selection_mode()
+
+    def _enter_selection_mode(self) -> None:
+        """Selection 모드를 활성화하고 체크박스를 표시한다."""
+        self._selection_mode = True
+
+        # 툴바 버튼 전환
+        self._new_folder_btn.setVisible(False)
+        if self._select_btn is not None:
+            self._select_btn.setVisible(False)
+        if self._select_all_btn is not None:
+            self._select_all_btn.setVisible(True)
+        if self._cancel_btn is not None:
+            self._cancel_btn.setVisible(True)
+
+        self._apply_checkable_state()
+        self._model.itemChanged.connect(self._on_item_check_changed)
+
+    def _exit_selection_mode(self) -> None:
+        """Selection 모드를 비활성화하고 체크박스를 제거한다."""
+        self._selection_mode = False
+
+        # 툴바 버튼 복원
+        self._new_folder_btn.setVisible(True)
+        if self._select_btn is not None:
+            self._select_btn.setVisible(True)
+        if self._select_all_btn is not None:
+            self._select_all_btn.setVisible(False)
+        if self._cancel_btn is not None:
+            self._cancel_btn.setVisible(False)
+
+        # 체크박스 제거
+        self._remove_checkable_state()
+
+        try:
+            self._model.itemChanged.disconnect(self._on_item_check_changed)
+        except TypeError:
+            pass  # 이미 연결 해제됨
+
+        # 액션 바 숨김
+        if self._action_bar is not None:
+            self._action_bar.setVisible(False)
+
+    def _on_cancel_clicked(self) -> None:
+        """Cancel 버튼 클릭 핸들러."""
+        self._exit_selection_mode()
+
+    def _on_select_all_clicked(self) -> None:
+        """Select All 버튼 클릭 — 모든 transcript를 선택한다."""
+        self._model.blockSignals(True)
+        try:
+            for row in range(self._model.rowCount()):
+                folder_item = self._model.item(row)
+                if folder_item is None:
+                    continue
+                item_type = folder_item.data(Qt.ItemDataRole.UserRole + 1)
+                if item_type == "analyses_header":
+                    continue
+                if item_type == "folder":
+                    folder_item.setCheckState(Qt.CheckState.Checked)
+                    for child_row in range(folder_item.rowCount()):
+                        child = folder_item.child(child_row)
+                        if child and child.data(Qt.ItemDataRole.UserRole + 1) == "transcript":
+                            child.setCheckState(Qt.CheckState.Checked)
+        finally:
+            self._model.blockSignals(False)
+        self._update_action_bar()
+
+    def _apply_checkable_state(self) -> None:
+        """모든 folder/transcript 아이템에 체크박스를 추가한다."""
+        for row in range(self._model.rowCount()):
+            folder_item = self._model.item(row)
+            if folder_item is None:
+                continue
+            item_type = folder_item.data(Qt.ItemDataRole.UserRole + 1)
+            if item_type == "analyses_header":
+                continue  # Analyses 섹션은 체크 불가
+            if item_type == "folder":
+                folder_item.setCheckable(True)
+                folder_item.setCheckState(Qt.CheckState.Unchecked)
+                for child_row in range(folder_item.rowCount()):
+                    child = folder_item.child(child_row)
+                    if child and child.data(Qt.ItemDataRole.UserRole + 1) == "transcript":
+                        child.setCheckable(True)
+                        child.setCheckState(Qt.CheckState.Unchecked)
+
+    def _remove_checkable_state(self) -> None:
+        """모든 아이템에서 체크박스를 제거한다."""
+        for row in range(self._model.rowCount()):
+            folder_item = self._model.item(row)
+            if folder_item is None:
+                continue
+            folder_item.setCheckable(False)
+            for child_row in range(folder_item.rowCount()):
+                child = folder_item.child(child_row)
+                if child:
+                    child.setCheckable(False)
+
+    def _restore_checked_paths(self, checked_paths: set[str]) -> None:
+        """저장된 체크 상태를 복원한다.
+
+        Args:
+            checked_paths: 체크된 transcript 경로 집합
+        """
+        if not checked_paths:
+            return
+        self._model.blockSignals(True)
+        try:
+            for row in range(self._model.rowCount()):
+                folder_item = self._model.item(row)
+                if folder_item is None:
+                    continue
+                if folder_item.data(Qt.ItemDataRole.UserRole + 1) != "folder":
+                    continue
+                for child_row in range(folder_item.rowCount()):
+                    child = folder_item.child(child_row)
+                    if child and child.data(Qt.ItemDataRole.UserRole) in checked_paths:
+                        child.setCheckState(Qt.CheckState.Checked)
+                # 부모 상태 업데이트
+                self._update_folder_check_state(folder_item)
+        finally:
+            self._model.blockSignals(False)
+        self._update_action_bar()
+
+    # ============================================================
+    # 체크박스 전파 및 액션 바
+    # ============================================================
+
+    def _on_item_check_changed(self, item: QStandardItem) -> None:
+        """체크박스 변경 시 부모/자식 전파를 처리한다.
+
+        Args:
+            item: 변경된 QStandardItem
+        """
+        item_type = item.data(Qt.ItemDataRole.UserRole + 1)
+
+        if item_type == "folder":
+            # 폴더 체크 -> 모든 자식에 전파
+            self._model.blockSignals(True)
+            try:
+                check_state = item.checkState()
+                for child_row in range(item.rowCount()):
+                    child = item.child(child_row)
+                    if child and child.data(Qt.ItemDataRole.UserRole + 1) == "transcript":
+                        child.setCheckState(check_state)
+            finally:
+                self._model.blockSignals(False)
+
+        elif item_type == "transcript":
+            # 자식 체크 -> 부모 상태 업데이트
+            parent = item.parent()
+            if parent is not None:
+                self._model.blockSignals(True)
+                try:
+                    self._update_folder_check_state(parent)
+                finally:
+                    self._model.blockSignals(False)
+
+        self._update_action_bar()
+
+    def _update_folder_check_state(self, folder_item: QStandardItem) -> None:
+        """폴더의 체크 상태를 자식 상태로부터 갱신한다.
+
+        Args:
+            folder_item: 폴더 QStandardItem
+        """
+        checked = 0
+        total = 0
+        for child_row in range(folder_item.rowCount()):
+            child = folder_item.child(child_row)
+            if child and child.data(Qt.ItemDataRole.UserRole + 1) == "transcript":
+                total += 1
+                if child.checkState() == Qt.CheckState.Checked:
+                    checked += 1
+
+        if total == 0:
+            return
+
+        if checked == total:
+            folder_item.setCheckState(Qt.CheckState.Checked)
+        elif checked == 0:
+            folder_item.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            folder_item.setCheckState(Qt.CheckState.PartiallyChecked)
+
+    def _update_action_bar(self) -> None:
+        """선택된 transcript 수에 따라 액션 바를 업데이트한다."""
+        paths = self._get_checked_transcript_paths()
+        count = len(paths)
+
+        if self._action_bar is not None:
+            if count >= MIN_SELECTION_COUNT:
+                self._action_bar.setVisible(True)
+                if self._action_label is not None:
+                    self._action_label.setText(f"Analyze {count} selected")
+            else:
+                self._action_bar.setVisible(False)
+
+    def _get_checked_transcript_paths(self) -> list[str]:
+        """모든 폴더에서 체크된 transcript 경로를 수집한다.
+
+        Returns:
+            체크된 transcript 경로 리스트
+        """
+        paths: list[str] = []
+        for row in range(self._model.rowCount()):
+            folder_item = self._model.item(row)
+            if folder_item is None:
+                continue
+            if folder_item.data(Qt.ItemDataRole.UserRole + 1) != "folder":
+                continue
+            for child_row in range(folder_item.rowCount()):
+                child = folder_item.child(child_row)
+                if (
+                    child
+                    and child.data(Qt.ItemDataRole.UserRole + 1) == "transcript"
+                    and child.checkState() == Qt.CheckState.Checked
+                ):
+                    path = child.data(Qt.ItemDataRole.UserRole)
+                    if path:
+                        paths.append(path)
+        return paths
+
+    def _on_analyze_clicked(self) -> None:
+        """Analyze 버튼 클릭 — 선택된 transcript로 분석을 요청한다."""
+        paths = self._get_checked_transcript_paths()
+        if len(paths) >= MIN_SELECTION_COUNT:
+            self.analysis_requested.emit(paths)
+        self._exit_selection_mode()
+
+    # ============================================================
+    # 이벤트 핸들러
+    # ============================================================
+
+    def _on_item_clicked(self, index: QModelIndex) -> None:
+        """트리 아이템 클릭 시 signal을 emit한다."""
+        item = self._model.itemFromIndex(index)
+        if item is None:
+            return
+
+        item_type = item.data(Qt.ItemDataRole.UserRole + 1)
+        item_path = item.data(Qt.ItemDataRole.UserRole)
+
+        if item_type == "folder":
+            self.folder_selected.emit(item_path)
+            self._load_transcripts_for_folder(item.text(), item)
+        elif item_type == "transcript":
+            self.transcript_selected.emit(item_path)
+        elif item_type == "analysis":
+            self.analysis_selected.emit(item_path)
+
     def _load_transcripts_for_folder(self, folder_name: str, parent_item: QStandardItem) -> None:
         """폴더의 transcript 목록을 로드하여 트리에 추가한다."""
         parent_item.removeRows(0, parent_item.rowCount())
@@ -134,22 +473,13 @@ class SidebarWidget(QWidget):
             child.setData("transcript", Qt.ItemDataRole.UserRole + 1)
             parent_item.appendRow(child)
 
-    # -- 이벤트 핸들러 --
-
-    def _on_item_clicked(self, index: QModelIndex) -> None:
-        """트리 아이템 클릭 시 signal을 emit한다."""
-        item = self._model.itemFromIndex(index)
-        if item is None:
-            return
-
-        item_type = item.data(Qt.ItemDataRole.UserRole + 1)
-        item_path = item.data(Qt.ItemDataRole.UserRole)
-
-        if item_type == "folder":
-            self.folder_selected.emit(item_path)
-            self._load_transcripts_for_folder(item.text(), item)
-        elif item_type == "transcript":
-            self.transcript_selected.emit(item_path)
+        # Selection 모드에서 로드 후 체크박스 적용
+        if self._selection_mode:
+            for child_row in range(parent_item.rowCount()):
+                child = parent_item.child(child_row)
+                if child and child.data(Qt.ItemDataRole.UserRole + 1) == "transcript":
+                    child.setCheckable(True)
+                    child.setCheckState(Qt.CheckState.Unchecked)
 
     def _on_directory_changed(self, path: str) -> None:
         """QFileSystemWatcher가 감지한 디렉토리 변경을 처리한다."""
@@ -157,9 +487,7 @@ class SidebarWidget(QWidget):
 
     def _on_new_folder_clicked(self) -> None:
         """새 폴더 생성 버튼 클릭."""
-        name, ok = QInputDialog.getText(
-            self, "New Folder", "Folder name:"
-        )
+        name, ok = QInputDialog.getText(self, "New Folder", "Folder name:")
         if ok and name.strip():
             self._create_folder(name.strip())
 
@@ -203,9 +531,7 @@ class SidebarWidget(QWidget):
     def _rename_folder_dialog(self, item: QStandardItem) -> None:
         """폴더 이름 변경 다이얼로그를 표시한다."""
         old_name = item.text()
-        new_name, ok = QInputDialog.getText(
-            self, "Rename Folder", "New name:", text=old_name
-        )
+        new_name, ok = QInputDialog.getText(self, "Rename Folder", "New name:", text=old_name)
         if ok and new_name.strip() and new_name.strip() != old_name:
             try:
                 self._workspace.rename_folder(old_name, new_name.strip())
