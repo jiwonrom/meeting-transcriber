@@ -22,7 +22,6 @@ from meeting_transcriber.core.system_audio import (
 from meeting_transcriber.storage.workspace import WorkspaceManager
 from meeting_transcriber.ui.main_window import MainWindow
 from meeting_transcriber.ui.onboarding import OnboardingWizard
-from meeting_transcriber.ui.sidebar import SidebarWidget
 from meeting_transcriber.ui.overlay import OverlayWidget
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
 from meeting_transcriber.ui.sidebar import SidebarWidget
@@ -90,8 +89,7 @@ def main() -> None:
     sidebar = SidebarWidget(workspace=workspace)
     window = MainWindow(workspace=workspace, sidebar=sidebar)
 
-    # 사이드바 (교차 회의 분석 등)
-    sidebar = SidebarWidget(workspace=workspace)
+    # 사이드바 시그널 연결
     sidebar.analysis_requested.connect(window._on_analysis_requested)
     sidebar.analysis_selected.connect(window._on_analysis_selected)
     sidebar.transcript_selected.connect(

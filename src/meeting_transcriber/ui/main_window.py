@@ -19,7 +19,6 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMainWindow,
-    QMenu,
     QMessageBox,
     QPushButton,
     QSplitter,
@@ -983,50 +982,6 @@ class MainWindow(QMainWindow):
     def _refresh_recording_list(self) -> None:
         """사이드바 녹음 목록을 갱신한다."""
         self._sidebar.refresh()
-
-    # -- 녹음 삭제 --
-
-    def _on_recording_context_menu(self, pos: Any) -> None:
-        """녹음 리스트 우클릭 컨텍스트 메뉴를 표시한다."""
-        item = self._recording_list.itemAt(pos)
-        if item is None:
-            return
-
-        menu = QMenu(self)
-        delete_action = menu.addAction("Delete")
-        chosen = menu.exec(self._recording_list.mapToGlobal(pos))
-        if chosen == delete_action:
-            self._delete_recording(item)
-
-    def _delete_recording(self, item: QListWidgetItem) -> None:
-        """녹음을 삭제한다."""
-        path_str = item.data(Qt.ItemDataRole.UserRole)
-        if not path_str:
-            return
-
-        reply = QMessageBox.question(
-            self,
-            "Delete Recording",
-            "Are you sure you want to delete this recording?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-
-        try:
-            self._workspace.delete_recording(
-                pathlib.Path(path_str), index=self._metadata_index
-            )
-        except (ValueError, FileNotFoundError, OSError):
-            self._status_bar.showMessage("Failed to delete recording", 3000)
-            return
-
-        self._transcript_viewer.clear()
-        self._transcript_viewer.hide()
-        self._empty_state.show()
-        self._refresh_recording_list()
-        self._status_bar.showMessage("Recording deleted", 2000)
 
     # -- 녹음 컨트롤 --
 
