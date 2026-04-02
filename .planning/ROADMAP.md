@@ -139,6 +139,11 @@ Plans:
   2. MetadataIndex correctly reads `languages` (plural) from transcript metadata
   3. `update_transcript_speakers` updates MetadataIndex after diarization
   4. "Cross-Meeting Selection Mode" and "Metadata-Indexed Language Search" E2E flows complete
+**Plans:** 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — MetadataIndex language field fix + speaker update index wiring
+- [ ] 07-02-PLAN.md — SidebarWidget layout integration into MainWindow
 
 **UI hint**: yes
 
@@ -166,5 +171,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 4. Meeting Intelligence | 3/3 | Complete | - |
 | 5. Cross-Meeting Analysis | 3/3 | Complete | - |
 | 6. System Audio Completion & Verification | 1/1 | Complete | 2026-04-02 |
-| 7. Cross-Meeting Analysis Wiring Fixes | 0/? | Pending | |
+| 7. Cross-Meeting Analysis Wiring Fixes | 0/2 | Pending | |
 | 8. Per-Task AI Provider Override | 0/? | Pending | |
