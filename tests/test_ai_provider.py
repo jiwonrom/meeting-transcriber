@@ -88,14 +88,41 @@ def test_mock_provider_generate_title() -> None:
     assert len(title) <= 50
 
 
+# -- MockProviderManager --
+
+
+class MockProviderManager:
+    """테스트용 mock ProviderManager."""
+
+    def get_provider_for_task(self, task: str, settings: dict[str, Any]) -> list[AIProvider]:
+        """태스크에 대한 프로바이더 체인을 반환한다."""
+        return [MockProvider()]
+
+    def get_provider_chain(self, settings: dict[str, Any]) -> list[AIProvider]:
+        """기본 프로바이더 체인을 반환한다."""
+        return [MockProvider()]
+
+    def execute_with_fallback(
+        self, chain: list[AIProvider], method: str, *args: Any, **kwargs: Any
+    ) -> tuple[Any, str | None]:
+        """체인의 첫 프로바이더로 메서드를 실행한다."""
+        func = getattr(chain[0], method)
+        return func(*args, **kwargs), None
+
+
+_DEFAULT_SETTINGS: dict[str, Any] = {
+    "ai": {"default_provider": "gemini", "task_overrides": {}}
+}
+
+
 # -- AITaskWorker 테스트 --
 
 
 def test_ai_task_worker_all_tasks(qtbot: object) -> None:
     """모든 AI 태스크가 순차 실행되는지 확인."""
-    provider = MockProvider()
     worker = AITaskWorker(
-        provider=provider,
+        provider_manager=MockProviderManager(),
+        settings=_DEFAULT_SETTINGS,
         text="teh quick brown fox jumped over teh lazy dog",
         language="en",
     )
@@ -119,9 +146,9 @@ def test_ai_task_worker_all_tasks(qtbot: object) -> None:
 
 def test_ai_task_worker_selective(qtbot: object) -> None:
     """선택적 태스크만 실행되는지 확인."""
-    provider = MockProvider()
     worker = AITaskWorker(
-        provider=provider,
+        provider_manager=MockProviderManager(),
+        settings=_DEFAULT_SETTINGS,
         text="Hello world",
         do_proofread=False,
         do_summarize=True,
@@ -143,14 +170,29 @@ def test_ai_task_worker_selective(qtbot: object) -> None:
 def test_ai_task_worker_error_handling(qtbot: object) -> None:
     """태스크 실패 시 에러가 수집되는지 확인."""
 
-    class FailingProvider(MockProvider):
-        def summarize(
-            self, text: str, *, language: str = "auto", template_prompt: str | None = None
-        ) -> str:
-            raise RuntimeError("API error")
+    class FailingSummarizeManager(MockProviderManager):
+        """summarize 태스크에서 실패하는 프로바이더를 반환하는 매니저."""
 
-    provider = FailingProvider()
-    worker = AITaskWorker(provider=provider, text="test")
+        def get_provider_for_task(
+            self, task: str, settings: dict[str, Any]
+        ) -> list[AIProvider]:
+            if task == "summarize":
+
+                class FailingProvider(MockProvider):
+                    def summarize(
+                        self, text: str, *, language: str = "auto",
+                        template_prompt: str | None = None,
+                    ) -> str:
+                        raise RuntimeError("API error")
+
+                return [FailingProvider()]
+            return [MockProvider()]
+
+    worker = AITaskWorker(
+        provider_manager=FailingSummarizeManager(),
+        settings=_DEFAULT_SETTINGS,
+        text="test",
+    )
 
     results: list[AIResult] = []
     worker.finished.connect(lambda r: results.append(r))
@@ -165,8 +207,11 @@ def test_ai_task_worker_error_handling(qtbot: object) -> None:
 
 def test_ai_task_worker_progress_signals(qtbot: object) -> None:
     """진행 상태 signal이 emit되는지 확인."""
-    provider = MockProvider()
-    worker = AITaskWorker(provider=provider, text="test")
+    worker = AITaskWorker(
+        provider_manager=MockProviderManager(),
+        settings=_DEFAULT_SETTINGS,
+        text="test",
+    )
 
     msgs: list[str] = []
     worker.progress.connect(lambda m: msgs.append(m))
@@ -542,13 +587,22 @@ def test_ai_task_worker_template_prompt(qtbot: object) -> None:
     called_kwargs: list[dict] = []
 
     class TrackingProvider(MockProvider):
-        def summarize(self, text: str, *, language: str = "auto", template_prompt: str | None = None) -> str:
+        def summarize(
+            self, text: str, *, language: str = "auto",
+            template_prompt: str | None = None,
+        ) -> str:
             called_kwargs.append({"language": language, "template_prompt": template_prompt})
             return '{"decisions": ["item1"]}'
 
-    provider = TrackingProvider()
+    class TrackingManager(MockProviderManager):
+        def get_provider_for_task(
+            self, task: str, settings: dict[str, Any]
+        ) -> list[AIProvider]:
+            return [TrackingProvider()]
+
     worker = AITaskWorker(
-        provider=provider,
+        provider_manager=TrackingManager(),
+        settings=_DEFAULT_SETTINGS,
         text="test text",
         template_prompt="Custom template prompt",
         do_proofread=False,
@@ -569,18 +623,130 @@ def test_ai_task_worker_no_template(qtbot: object) -> None:
     called_kwargs: list[dict] = []
 
     class TrackingProvider(MockProvider):
-        def summarize(self, text: str, *, language: str = "auto", template_prompt: str | None = None) -> str:
+        def summarize(
+            self, text: str, *, language: str = "auto",
+            template_prompt: str | None = None,
+        ) -> str:
             called_kwargs.append({"template_prompt": template_prompt})
             return "- Point 1"
 
-    provider = TrackingProvider()
-    worker = AITaskWorker(provider=provider, text="test")
+    class TrackingManager(MockProviderManager):
+        def get_provider_for_task(
+            self, task: str, settings: dict[str, Any]
+        ) -> list[AIProvider]:
+            return [TrackingProvider()]
+
+    worker = AITaskWorker(
+        provider_manager=TrackingManager(),
+        settings=_DEFAULT_SETTINGS,
+        text="test",
+    )
 
     results: list[AIResult] = []
     worker.finished.connect(lambda r: results.append(r))
     worker.run()
 
     assert called_kwargs[0]["template_prompt"] is None
+
+
+# -- Per-task override 테스트 --
+
+
+def test_per_task_override(qtbot: object) -> None:
+    """태스크별 오버라이드 시 다른 프로바이더가 사용되는지 확인."""
+
+    class AlternativeProvider(MockProvider):
+        """오버라이드된 프로바이더 -- summarize 결과가 다름."""
+
+        def summarize(
+            self, text: str, *, language: str = "auto",
+            template_prompt: str | None = None,
+        ) -> str:
+            return "ALTERNATIVE SUMMARY"
+
+    class OverrideManager(MockProviderManager):
+        """summarize 태스크에 다른 프로바이더를 반환하는 매니저."""
+
+        def get_provider_for_task(
+            self, task: str, settings: dict[str, Any]
+        ) -> list[AIProvider]:
+            if task == "summarize":
+                return [AlternativeProvider()]
+            return [MockProvider()]
+
+    settings = {
+        "ai": {
+            "default_provider": "gemini",
+            "task_overrides": {"summarize": "openai"},
+        }
+    }
+
+    worker = AITaskWorker(
+        provider_manager=OverrideManager(),
+        settings=settings,
+        text="test text",
+    )
+
+    results: list[AIResult] = []
+    worker.finished.connect(lambda r: results.append(r))
+    worker.run()
+
+    result = results[0]
+    # summarize는 AlternativeProvider를 사용
+    assert result.summary == "ALTERNATIVE SUMMARY"
+    # proofread는 기본 MockProvider를 사용
+    assert "test text" in result.proofread_text
+    assert len(result.errors) == 0
+
+
+def test_per_task_fallback(qtbot: object) -> None:
+    """태스크 오버라이드 없이 모든 태스크가 기본 체인을 사용하는지 확인."""
+    worker = AITaskWorker(
+        provider_manager=MockProviderManager(),
+        settings=_DEFAULT_SETTINGS,
+        text="test text",
+    )
+
+    results: list[AIResult] = []
+    worker.finished.connect(lambda r: results.append(r))
+    worker.run()
+
+    result = results[0]
+    assert "Point 1" in result.summary
+    assert result.title == "Weekly Standup Meeting"
+    assert len(result.keywords) == 3
+    assert len(result.errors) == 0
+
+
+def test_per_task_empty_chain(qtbot: object) -> None:
+    """특정 태스크에 빈 체인이면 에러가 수집되는지 확인."""
+
+    class EmptyChainManager(MockProviderManager):
+        """summarize 태스크에 빈 체인을 반환하는 매니저."""
+
+        def get_provider_for_task(
+            self, task: str, settings: dict[str, Any]
+        ) -> list[AIProvider]:
+            if task == "summarize":
+                return []
+            return [MockProvider()]
+
+    worker = AITaskWorker(
+        provider_manager=EmptyChainManager(),
+        settings=_DEFAULT_SETTINGS,
+        text="test text",
+        do_proofread=False,
+        do_keywords=False,
+        do_title=False,
+    )
+
+    results: list[AIResult] = []
+    worker.finished.connect(lambda r: results.append(r))
+    worker.run()
+
+    result = results[0]
+    assert len(result.errors) == 1
+    assert "No providers available for task: summarize" in result.errors[0]
 
 
 def test_gemini_json_mode() -> None:
