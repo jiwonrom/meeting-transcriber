@@ -155,6 +155,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `_run_ai_tasks` uses `get_provider_for_task()` instead of `get_provider_chain()` for each AI call
   2. User's per-task provider overrides from `ai.task_overrides` settings are applied at runtime
+**Plans:** 1 plan
+
+Plans:
+- [ ] 08-01-PLAN.md — AITaskWorker per-task provider resolution + call site wiring
 
 **UI hint**: no
 
@@ -172,4 +176,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 5. Cross-Meeting Analysis | 3/3 | Complete | - |
 | 6. System Audio Completion & Verification | 1/1 | Complete | 2026-04-02 |
 | 7. Cross-Meeting Analysis Wiring Fixes | 1/2 | In Progress|  |
-| 8. Per-Task AI Provider Override | 0/? | Pending | |
+| 8. Per-Task AI Provider Override | 0/1 | Pending | |
