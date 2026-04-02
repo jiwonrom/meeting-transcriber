@@ -64,7 +64,7 @@ class MetadataIndex:
             "title": meta.get("title", "Untitled"),
             "created_at": meta.get("created_at", ""),
             "duration_seconds": meta.get("duration_seconds", 0),
-            "languages": [meta["language"]] if "language" in meta else [],
+            "languages": meta.get("languages", [meta["language"]] if "language" in meta else []),
             "folder": transcript_path.parent.parent.name,
             "template_type": meta.get("template_type"),
             "keywords": meta.get("keywords", []),

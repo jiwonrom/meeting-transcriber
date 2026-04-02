@@ -100,3 +100,78 @@ def test_corrupted_index_recovery(tmp_path: pathlib.Path) -> None:
     # 파일이 올바르게 복구되었는지 확인
     data = json.loads(index_file.read_text())
     assert data["version"] == "1.0"
+
+
+def test_update_entry_v2_languages(tmp_path: pathlib.Path) -> None:
+    """v2.0 transcript의 languages(복수) 필드를 정상적으로 읽는다."""
+    idx = MetadataIndex(tmp_path)
+
+    folder = tmp_path / "Work" / "rec_v2"
+    folder.mkdir(parents=True)
+    transcript_path = folder / "transcript.json"
+    transcript = {
+        "version": "2.0",
+        "metadata": {
+            "title": "Multilingual Meeting",
+            "created_at": "2026-01-01T00:00:00Z",
+            "duration_seconds": 300.0,
+            "languages": ["en", "ko"],
+        },
+        "segments": [
+            {"text": "Hello"},
+            {"text": "안녕하세요"},
+        ],
+    }
+    transcript_path.write_text(json.dumps(transcript))
+    idx.update_entry(transcript_path, transcript)
+
+    entry = idx.get_entry(transcript_path)
+    assert entry is not None
+    assert entry["languages"] == ["en", "ko"]
+
+
+def test_update_entry_v1_language_fallback(tmp_path: pathlib.Path) -> None:
+    """v1.0 transcript의 language(단수) 필드를 리스트로 감싸서 반환한다."""
+    idx = MetadataIndex(tmp_path)
+
+    folder = tmp_path / "Work" / "rec_v1"
+    folder.mkdir(parents=True)
+    transcript_path = folder / "transcript.json"
+    transcript = {
+        "version": "1.0",
+        "metadata": {
+            "title": "English Only",
+            "created_at": "2026-01-01T00:00:00Z",
+            "duration_seconds": 60.0,
+            "language": "en",
+        },
+        "segments": [{"text": "Hello world"}],
+    }
+    transcript_path.write_text(json.dumps(transcript))
+    idx.update_entry(transcript_path, transcript)
+
+    entry = idx.get_entry(transcript_path)
+    assert entry is not None
+    assert entry["languages"] == ["en"]
+
+
+def test_update_entry_no_language_field(tmp_path: pathlib.Path) -> None:
+    """language/languages 필드가 모두 없으면 빈 리스트를 반환한다."""
+    idx = MetadataIndex(tmp_path)
+
+    folder = tmp_path / "Work" / "rec_nolang"
+    folder.mkdir(parents=True)
+    transcript_path = folder / "transcript.json"
+    transcript = {
+        "metadata": {
+            "title": "No Language",
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        "segments": [],
+    }
+    transcript_path.write_text(json.dumps(transcript))
+    idx.update_entry(transcript_path, transcript)
+
+    entry = idx.get_entry(transcript_path)
+    assert entry is not None
+    assert entry["languages"] == []
