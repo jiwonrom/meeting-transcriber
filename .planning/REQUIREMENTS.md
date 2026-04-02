@@ -16,15 +16,15 @@
 
 - [x] **BYOK-01**: User can add their own OpenAI API key in Preferences
 - [x] **BYOK-02**: User can add their own Anthropic API key in Preferences
-- [x] **BYOK-03**: User can select which AI provider to use for each task (summarize, proofread, translate)
+- [ ] **BYOK-03**: User can select which AI provider to use for each task (summarize, proofread, translate)
 - [x] **BYOK-04**: App falls back to next provider if primary fails
 
 ### System Audio
 
-- [x] **SYSAUD-01**: App detects whether BlackHole virtual audio driver is installed
-- [x] **SYSAUD-02**: App provides guided setup wizard for BlackHole installation and Aggregate Device creation
+- [ ] **SYSAUD-01**: App detects whether BlackHole virtual audio driver is installed
+- [ ] **SYSAUD-02**: App provides guided setup wizard for BlackHole installation and Aggregate Device creation
 - [ ] **SYSAUD-03**: User can select system audio (via BlackHole) as input source alongside microphone
-- [x] **SYSAUD-04**: User can capture both microphone and system audio simultaneously (dual-channel)
+- [ ] **SYSAUD-04**: User can capture both microphone and system audio simultaneously (dual-channel)
 
 ### Speaker Diarization
 
@@ -46,9 +46,9 @@
 
 ### Cross-Meeting Analysis
 
-- [x] **CMA-01**: User can select multiple transcripts for combined analysis
+- [ ] **CMA-01**: User can select multiple transcripts for combined analysis
 - [x] **CMA-02**: AI generates cross-meeting summary highlighting recurring topics and action items
-- [x] **CMA-03**: Lightweight transcript index maintains searchable metadata without loading full files
+- [ ] **CMA-03**: Lightweight transcript index maintains searchable metadata without loading full files
 
 ## v3.0 Requirements (Deferred)
 
@@ -79,12 +79,12 @@
 | EXP-04 | Phase 1 | Complete |
 | BYOK-01 | Phase 1 | Complete |
 | BYOK-02 | Phase 1 | Complete |
-| BYOK-03 | Phase 1 | Complete |
+| BYOK-03 | Phase 8 | Pending |
 | BYOK-04 | Phase 1 | Complete |
-| SYSAUD-01 | Phase 2 | Complete |
-| SYSAUD-02 | Phase 2 | Complete |
-| SYSAUD-03 | Phase 2 | Pending |
-| SYSAUD-04 | Phase 2 | Complete |
+| SYSAUD-01 | Phase 6 | Pending |
+| SYSAUD-02 | Phase 6 | Pending |
+| SYSAUD-03 | Phase 6 | Pending |
+| SYSAUD-04 | Phase 6 | Pending |
 | DIAR-01 | Phase 3 | Complete |
 | DIAR-02 | Phase 3 | Complete |
 | DIAR-03 | Phase 3 | Complete |
@@ -94,9 +94,9 @@
 | TPL-03 | Phase 4 | Complete |
 | DET-01 | Phase 4 | Complete |
 | DET-02 | Phase 4 | Complete |
-| CMA-01 | Phase 5 | Complete |
+| CMA-01 | Phase 7 | Pending |
 | CMA-02 | Phase 5 | Complete |
-| CMA-03 | Phase 5 | Complete |
+| CMA-03 | Phase 7 | Pending |
 
 ---
 *Defined: 2026-03-27 from PRD §4.3 + research findings*

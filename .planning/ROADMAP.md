@@ -17,6 +17,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Speaker Diarization** - Post-recording speaker identification with labeled transcripts
 - [ ] **Phase 4: Meeting Intelligence** - Meeting templates, adaptive summaries, and auto meeting detection
 - [ ] **Phase 5: Cross-Meeting Analysis** - Multi-transcript selection, combined insights, and searchable index
+- [ ] **Phase 6: System Audio Completion & Verification** - Complete SYSAUD-03 and formally verify Phase 2
+- [ ] **Phase 7: Cross-Meeting Analysis Wiring Fixes** - Show SidebarWidget, fix MetadataIndex field mismatch
+- [ ] **Phase 8: Per-Task AI Provider Override** - Wire get_provider_for_task() into _run_ai_tasks
 
 ## Phase Details
 
@@ -48,12 +51,12 @@ Plans:
   2. User who does not have BlackHole can follow the in-app setup wizard to install it and create an Aggregate Device without leaving the app
   3. User can select system audio as an input source from the recording controls and see it transcribed
   4. User can capture microphone and system audio simultaneously, producing a single merged transcript
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans executed
 
 Plans:
 - [x] 02-01-PLAN.md — Core backend: BlackHole detection, Aggregate Device CRUD, constants/exceptions/config
 - [x] 02-02-PLAN.md — UI widgets: SystemAudioToggle, DualLevelMeter, BlackHoleSetupWizard
-- [ ] 02-03-PLAN.md — Integration: MainWindow wiring, settings dialog, app.py signals, end-to-end verification
+- [x] 02-03-PLAN.md — Integration: MainWindow wiring, settings dialog, app.py signals, end-to-end verification
 
 **UI hint**: yes
 
@@ -110,15 +113,54 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 6: System Audio Completion & Verification
+**Goal**: Complete system audio source selection and formally verify all Phase 2 requirements
+**Depends on**: Phase 2 (completes unfinished Phase 2 work)
+**Requirements**: SYSAUD-01, SYSAUD-02, SYSAUD-03, SYSAUD-04
+**Gap Closure:** Closes gaps from v2.0 audit — 1 unsatisfied + 3 verification gaps
+**Success Criteria** (what must be TRUE):
+  1. User can select system audio (via BlackHole) as an input source from recording controls
+  2. Phase 2 VERIFICATION.md exists and all 4 SYSAUD requirements pass formal verification
+  3. ROADMAP status for Phase 2 is accurate
+
+**UI hint**: yes
+
+### Phase 7: Cross-Meeting Analysis Wiring Fixes
+**Goal**: Make cross-meeting analysis features accessible at runtime by fixing integration wiring
+**Depends on**: Phase 5 (fixes broken wiring from Phase 5 implementation)
+**Requirements**: CMA-01, CMA-03
+**Gap Closure:** Closes gaps from v2.0 audit — 2 partial requirements, 2 broken flows, 2 integration issues
+**Success Criteria** (what must be TRUE):
+  1. SidebarWidget is visible in the MainWindow layout and user can enter selection mode
+  2. MetadataIndex correctly reads `languages` (plural) from transcript metadata
+  3. `update_transcript_speakers` updates MetadataIndex after diarization
+  4. "Cross-Meeting Selection Mode" and "Metadata-Indexed Language Search" E2E flows complete
+
+**UI hint**: yes
+
+### Phase 8: Per-Task AI Provider Override
+**Goal**: Wire per-task AI provider selection so user's task-level overrides are applied
+**Depends on**: Phase 1 (fixes unused wiring from Phase 1 implementation)
+**Requirements**: BYOK-03
+**Gap Closure:** Closes gaps from v2.0 audit — 1 partial requirement
+**Success Criteria** (what must be TRUE):
+  1. `_run_ai_tasks` uses `get_provider_for_task()` instead of `get_provider_chain()` for each AI call
+  2. User's per-task provider overrides from `ai.task_overrides` settings are applied at runtime
+
+**UI hint**: no
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Export & Multi-Provider | 3/3 | Complete | - |
-| 2. System Audio Capture | 2/3 | In Progress| |
+| 2. System Audio Capture | 3/3 | Complete | - |
 | 3. Speaker Diarization | 3/3 | Complete | - |
 | 4. Meeting Intelligence | 3/3 | Complete | - |
-| 5. Cross-Meeting Analysis | 0/3 | Planning | - |
+| 5. Cross-Meeting Analysis | 3/3 | Complete | - |
+| 6. System Audio Completion & Verification | 0/? | Pending | |
+| 7. Cross-Meeting Analysis Wiring Fixes | 0/? | Pending | |
+| 8. Per-Task AI Provider Override | 0/? | Pending | |
