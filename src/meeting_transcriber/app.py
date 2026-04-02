@@ -22,6 +22,7 @@ from meeting_transcriber.core.system_audio import (
 from meeting_transcriber.storage.workspace import WorkspaceManager
 from meeting_transcriber.ui.main_window import MainWindow
 from meeting_transcriber.ui.onboarding import OnboardingWizard
+from meeting_transcriber.ui.sidebar import SidebarWidget
 from meeting_transcriber.ui.overlay import OverlayWidget
 from meeting_transcriber.ui.settings_dialog import SettingsDialog
 from meeting_transcriber.ui.sidebar import SidebarWidget
@@ -85,8 +86,9 @@ def main() -> None:
     # 테마
     theme = ThemeEngine()
 
-    # 메인 윈도우
-    window = MainWindow(workspace=workspace)
+    # 사이드바 + 메인 윈도우
+    sidebar = SidebarWidget(workspace=workspace)
+    window = MainWindow(workspace=workspace, sidebar=sidebar)
 
     # 사이드바 (교차 회의 분석 등)
     sidebar = SidebarWidget(workspace=workspace)

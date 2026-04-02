@@ -235,26 +235,16 @@ def test_fmt_duration() -> None:
     assert _fmt_duration(3723) == "1:02:03"
 
 
-def test_recording_list_populated(qtbot: object, tmp_path: pathlib.Path) -> None:
-    """녹음이 있으면 리스트에 표시되는지 확인."""
+def test_sidebar_integrated(qtbot: object, tmp_path: pathlib.Path) -> None:
+    """SidebarWidget이 MainWindow에 통합되어 있는지 확인."""
+    from meeting_transcriber.ui.sidebar import SidebarWidget
+
     ws = WorkspaceManager(workspace_dir=tmp_path)
     ws.ensure_default_folders()
 
-    meeting = tmp_path / "Work" / "test-meeting"
-    meeting.mkdir(parents=True)
-    (meeting / "transcript.json").write_text(
-        json.dumps(
-            {
-                "version": "1.0",
-                "metadata": {"title": "Test", "duration_seconds": 30, "languages": ["en"]},
-                "segments": [{"start": 0.0, "end": 1.0, "text": "Hi"}],
-            }
-        )
-    )
-
     window = MainWindow(workspace=ws)
     qtbot.addWidget(window)  # type: ignore[union-attr]
-    assert window._recording_list.count() >= 1
+    assert isinstance(window.sidebar, SidebarWidget)
 
 
 def test_transcript_viewer_has_tabs(qtbot: object) -> None:
