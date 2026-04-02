@@ -6,6 +6,11 @@ import json
 import pathlib
 
 from meeting_transcriber.storage.metadata_index import MetadataIndex
+from meeting_transcriber.storage.transcript_store import (
+    create_transcript,
+    save_transcript,
+    update_transcript_speakers,
+)
 
 
 def test_create_empty_index(tmp_path: pathlib.Path) -> None:
@@ -175,3 +180,60 @@ def test_update_entry_no_language_field(tmp_path: pathlib.Path) -> None:
     entry = idx.get_entry(transcript_path)
     assert entry is not None
     assert entry["languages"] == []
+
+
+def test_update_transcript_speakers_updates_index(tmp_path: pathlib.Path) -> None:
+    """update_transcript_speakers에 index를 전달하면 인덱스 엔트리가 갱신된다."""
+    idx = MetadataIndex(tmp_path)
+
+    folder = tmp_path / "Work" / "rec_spk"
+    folder.mkdir(parents=True)
+    transcript_path = folder / "transcript.json"
+
+    segments = [{"start": 0.0, "end": 1.0, "text": "Hello"}]
+    transcript = create_transcript(segments=segments, languages=["en"])
+    save_transcript(transcript, transcript_path, index=idx)
+
+    # 초기 엔트리 확인
+    initial_entry = idx.get_entry(transcript_path)
+    assert initial_entry is not None
+    assert initial_entry["segment_count"] == 1
+
+    # 화자 정보 포함된 새 세그먼트
+    new_segments = [
+        {"start": 0.0, "end": 1.0, "text": "Hello", "speaker": "SPEAKER_00"},
+        {"start": 1.0, "end": 2.0, "text": "Hi there", "speaker": "SPEAKER_01"},
+    ]
+    speakers = {"SPEAKER_00": "Alice", "SPEAKER_01": "Bob"}
+    diarization_meta = {"model": "test"}
+
+    update_transcript_speakers(
+        transcript_path, new_segments, speakers, diarization_meta, index=idx
+    )
+
+    updated_entry = idx.get_entry(transcript_path)
+    assert updated_entry is not None
+    assert updated_entry["segment_count"] == 2
+
+
+def test_update_transcript_speakers_no_index(tmp_path: pathlib.Path) -> None:
+    """index 없이 update_transcript_speakers를 호출해도 정상 동작한다."""
+    folder = tmp_path / "Work" / "rec_noidx"
+    folder.mkdir(parents=True)
+    transcript_path = folder / "transcript.json"
+
+    segments = [{"start": 0.0, "end": 1.0, "text": "Hello"}]
+    transcript = create_transcript(segments=segments, languages=["en"])
+    save_transcript(transcript, transcript_path)
+
+    new_segments = [
+        {"start": 0.0, "end": 1.0, "text": "Hello", "speaker": "SPEAKER_00"},
+    ]
+    speakers = {"SPEAKER_00": "Alice"}
+    diarization_meta = {"model": "test"}
+
+    result = update_transcript_speakers(
+        transcript_path, new_segments, speakers, diarization_meta
+    )
+    assert result["version"] == "2.0"
+    assert result["segments"] == new_segments

@@ -1653,7 +1653,10 @@ class MainWindow(QMainWindow):
             "model": DIARIZATION_MODEL,
             "completed_at": datetime.now(tz=UTC).isoformat(),
         }
-        update_transcript_speakers(transcript_path, result, speakers, diarization_meta)
+        update_transcript_speakers(
+            transcript_path, result, speakers, diarization_meta,
+            index=self._metadata_index,
+        )
         self._status_bar.showMessage("Speakers identified", 3000)
 
         # 뷰어 새로고침

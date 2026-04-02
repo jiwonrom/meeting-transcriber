@@ -98,6 +98,8 @@ def update_transcript_speakers(
     segments: list[dict[str, Any]],
     speakers: dict[str, str],
     diarization_meta: dict[str, str],
+    *,
+    index: MetadataIndex | None = None,
 ) -> dict[str, Any]:
     """기존 transcript에 화자 정보를 업데이트한다.
 
@@ -108,6 +110,7 @@ def update_transcript_speakers(
         segments: 화자 라벨이 포함된 세그먼트 리스트
         speakers: 화자 딕셔너리 (라벨 -> 이름)
         diarization_meta: 화자 분리 메타데이터
+        index: 메타데이터 인덱스. 제공 시 엔트리를 갱신한다.
 
     Returns:
         업데이트된 transcript 딕셔너리
@@ -117,7 +120,7 @@ def update_transcript_speakers(
     transcript["segments"] = segments
     transcript["metadata"]["speakers"] = speakers
     transcript["metadata"]["diarization"] = diarization_meta
-    save_transcript(transcript, path)
+    save_transcript(transcript, path, index=index)
     return transcript
 
 
