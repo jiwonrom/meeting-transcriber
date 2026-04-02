@@ -22,7 +22,6 @@ class DualLevelMeter(QWidget):
         # 마이크 레벨 바
         self._mic_label = QLabel("MIC")
         self._mic_label.setObjectName("caption")
-        self._mic_label.setStyleSheet("font-size: 11px;")
         self._mic_label.setVisible(False)
         layout.addWidget(self._mic_label)
 
@@ -37,7 +36,6 @@ class DualLevelMeter(QWidget):
         # 시스템 레벨 바
         self._system_label = QLabel("SYS")
         self._system_label.setObjectName("caption")
-        self._system_label.setStyleSheet("font-size: 11px;")
         self._system_label.setVisible(False)
         layout.addWidget(self._system_label)
 

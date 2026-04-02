@@ -1,4 +1,5 @@
 """onboarding 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 from unittest.mock import patch

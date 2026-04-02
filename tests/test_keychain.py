@@ -1,4 +1,5 @@
 """keychain 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -21,9 +22,7 @@ def test_get_api_key() -> None:
         mock_kr.get_password.return_value = "my-secret-key"
         result = get_api_key("gemini")
         assert result == "my-secret-key"
-        mock_kr.get_password.assert_called_once_with(
-            "meeting_transcriber.gemini", "api_key"
-        )
+        mock_kr.get_password.assert_called_once_with("meeting_transcriber.gemini", "api_key")
 
 
 def test_get_api_key_not_found() -> None:
@@ -38,9 +37,7 @@ def test_delete_api_key() -> None:
     """API 키 삭제가 keyring.delete_password를 호출하는지 확인."""
     with patch("meeting_transcriber.utils.keychain.keyring") as mock_kr:
         delete_api_key("gemini")
-        mock_kr.delete_password.assert_called_once_with(
-            "meeting_transcriber.gemini", "api_key"
-        )
+        mock_kr.delete_password.assert_called_once_with("meeting_transcriber.gemini", "api_key")
 
 
 def test_delete_api_key_not_found() -> None:

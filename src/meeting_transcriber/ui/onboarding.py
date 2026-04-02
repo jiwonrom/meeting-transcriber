@@ -1,4 +1,5 @@
 """첫 실행 온보딩 위저드 — 언어 선택, 모델 다운로드, 마이크 권한."""
+
 from __future__ import annotations
 
 import subprocess
@@ -63,9 +64,7 @@ class OnboardingWizard(QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"{APP_NAME} — Setup")
         self.setFixedSize(500, 400)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
-        )
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
         self._selected_language = "auto"
         self._download_thread: ModelDownloadThread | None = None

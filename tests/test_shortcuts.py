@@ -1,4 +1,5 @@
 """shortcuts 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 from PyQt6.QtWidgets import QWidget

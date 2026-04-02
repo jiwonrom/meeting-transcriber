@@ -1,4 +1,5 @@
 """Whisper 모델 파일 관리 — 경로 확인, 다운로드, 목록."""
+
 from __future__ import annotations
 
 import pathlib
@@ -28,9 +29,7 @@ def get_model_path(model_name: str) -> pathlib.Path:
     filename = WHISPER_MODELS.get(model_name)
     if filename is None:
         available = ", ".join(sorted(WHISPER_MODELS.keys()))
-        raise WhisperModelNotFoundError(
-            f"Unknown model '{model_name}'. Available: {available}"
-        )
+        raise WhisperModelNotFoundError(f"Unknown model '{model_name}'. Available: {available}")
     return MODELS_DIR / filename
 
 
@@ -58,12 +57,14 @@ def list_available_models() -> list[dict[str, Any]]:
         path = MODELS_DIR / filename
         downloaded = path.exists() and path.stat().st_size > 0
         size_bytes = path.stat().st_size if downloaded else None
-        models.append({
-            "name": name,
-            "filename": filename,
-            "downloaded": downloaded,
-            "size_bytes": size_bytes,
-        })
+        models.append(
+            {
+                "name": name,
+                "filename": filename,
+                "downloaded": downloaded,
+                "size_bytes": size_bytes,
+            }
+        )
     return models
 
 

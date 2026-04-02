@@ -1,4 +1,5 @@
 """macOS Keychain 연동 — API 키 안전 저장."""
+
 from __future__ import annotations
 
 import keyring

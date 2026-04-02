@@ -1,4 +1,5 @@
 """공통 테스트 fixture."""
+
 from __future__ import annotations
 
 import pathlib

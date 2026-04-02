@@ -1,4 +1,5 @@
 """model_manager 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import pathlib
@@ -84,6 +85,7 @@ def test_download_model_success(tmp_path: pathlib.Path) -> None:
         patch("meeting_transcriber.core.model_manager.ensure_workspace"),
         patch("urllib.request.urlretrieve", side_effect=fake_urlretrieve),
     ):
+
         def callback(downloaded: int, total: int) -> None:
             progress_calls.append((downloaded, total))
 

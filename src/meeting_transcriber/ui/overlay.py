@@ -1,4 +1,5 @@
 """Spotlight 스타일 플로팅 오버레이 — 화면 하단 중앙 캡션 바."""
+
 from __future__ import annotations
 
 from collections import deque
@@ -97,9 +98,7 @@ class OverlayWidget(QWidget):
         font.setPixelSize(self._font_size)
         font.setWeight(QFont.Weight.Medium)
         self._label.setFont(font)
-        self._label.setStyleSheet(
-            f"color: {self._text_color}; background: transparent;"
-        )
+        self._label.setStyleSheet(f"color: {self._text_color}; background: transparent;")
         layout.addWidget(self._label, 1)
 
     # -- 드래그 지원 --
@@ -224,9 +223,7 @@ class OverlayWidget(QWidget):
 
         # 텍스트 색상
         self._text_color = colors.get("text", {}).get("overlay", "#FFFFFF")
-        self._label.setStyleSheet(
-            f"color: {self._text_color}; background: transparent;"
-        )
+        self._label.setStyleSheet(f"color: {self._text_color}; background: transparent;")
 
         # 녹음 상태 색상
         self._recording_color = colors.get("status", {}).get("recording", "#FF453A")
@@ -310,9 +307,12 @@ class OverlayWidget(QWidget):
 
         path = QPainterPath()
         path.addRoundedRect(
-            0.0, 0.0,
-            float(self.width()), float(self.height()),
-            self._border_radius, self._border_radius,
+            0.0,
+            0.0,
+            float(self.width()),
+            float(self.height()),
+            self._border_radius,
+            self._border_radius,
         )
         painter.fillPath(path, QBrush(self._bg_color))
         painter.end()

@@ -1,4 +1,5 @@
 """글로벌 단축키 관리 — QShortcut 기반 앱 내 단축키."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

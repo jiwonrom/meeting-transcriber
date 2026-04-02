@@ -1,4 +1,5 @@
 """audio_capture 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import io
@@ -22,9 +23,7 @@ from meeting_transcriber.utils.constants import AUDIO_SAMPLE_RATE
 
 def test_encode_wav_chunk_roundtrip() -> None:
     """WAV 인코딩 후 디코딩하면 원본 데이터와 일치하는지 확인."""
-    original = np.sin(
-        2 * np.pi * 440 * np.arange(16000, dtype=np.float32) / 16000
-    )
+    original = np.sin(2 * np.pi * 440 * np.arange(16000, dtype=np.float32) / 16000)
     wav_bytes = encode_wav_chunk(original, sample_rate=16000)
 
     buf = io.BytesIO(wav_bytes)
@@ -64,12 +63,24 @@ def test_encode_wav_chunk_clips_values() -> None:
 def test_list_audio_devices_input_only() -> None:
     """입력 장치만 필터링되는지 확인."""
     fake_devices = [
-        {"name": "Mic", "max_input_channels": 2, "max_output_channels": 0,
-         "default_samplerate": 44100.0},
-        {"name": "Speaker", "max_input_channels": 0, "max_output_channels": 2,
-         "default_samplerate": 48000.0},
-        {"name": "Headset", "max_input_channels": 1, "max_output_channels": 1,
-         "default_samplerate": 16000.0},
+        {
+            "name": "Mic",
+            "max_input_channels": 2,
+            "max_output_channels": 0,
+            "default_samplerate": 44100.0,
+        },
+        {
+            "name": "Speaker",
+            "max_input_channels": 0,
+            "max_output_channels": 2,
+            "default_samplerate": 48000.0,
+        },
+        {
+            "name": "Headset",
+            "max_input_channels": 1,
+            "max_output_channels": 1,
+            "default_samplerate": 16000.0,
+        },
     ]
     with (
         patch("meeting_transcriber.core.audio_capture.sd.query_devices", return_value=fake_devices),

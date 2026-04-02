@@ -1,4 +1,5 @@
 """실시간 마이크 오디오 캡처 — sounddevice + QThread."""
+
 from __future__ import annotations
 
 import io
@@ -52,13 +53,15 @@ def list_audio_devices() -> list[AudioDeviceInfo]:
         max_input = dev.get("max_input_channels", 0)
         if max_input < 1:
             continue
-        devices.append(AudioDeviceInfo(
-            index=i,
-            name=dev.get("name", f"Device {i}"),
-            channels=max_input,
-            sample_rate=dev.get("default_samplerate", 44100.0),
-            is_default=(i == default_input),
-        ))
+        devices.append(
+            AudioDeviceInfo(
+                index=i,
+                name=dev.get("name", f"Device {i}"),
+                channels=max_input,
+                sample_rate=dev.get("default_samplerate", 44100.0),
+                is_default=(i == default_input),
+            )
+        )
 
     return devices
 
@@ -136,9 +139,7 @@ class AudioCaptureWorker(QThread):
         self._chunks: list[np.ndarray] = []
         self._running = False
         self._level_sample_count = 0
-        self._level_interval_samples = int(
-            sample_rate * AUDIO_LEVEL_INTERVAL_MS / 1000
-        )
+        self._level_interval_samples = int(sample_rate * AUDIO_LEVEL_INTERVAL_MS / 1000)
 
     def run(self) -> None:
         """QThread 진입점. InputStream을 열고 이벤트 루프를 실행한다."""
@@ -235,18 +236,16 @@ class AudioCaptureWorker(QThread):
                 space = self._chunk_size - self._write_pos
                 to_copy = min(remaining, space)
 
-                self._buffer[self._write_pos : self._write_pos + to_copy] = (
-                    data[offset : offset + to_copy]
-                )
+                self._buffer[self._write_pos : self._write_pos + to_copy] = data[
+                    offset : offset + to_copy
+                ]
                 self._write_pos += to_copy
                 offset += to_copy
                 remaining -= to_copy
 
                 self._level_sample_count += to_copy
                 if self._level_sample_count >= self._level_interval_samples:
-                    rms = float(np.sqrt(np.mean(
-                        self._buffer[: self._write_pos] ** 2
-                    )))
+                    rms = float(np.sqrt(np.mean(self._buffer[: self._write_pos] ** 2)))
                     self.level_changed.emit(min(rms, 1.0))
                     self._level_sample_count = 0
 
@@ -258,7 +257,7 @@ class AudioCaptureWorker(QThread):
         chunk = self._buffer.copy()
         self._chunks.append(chunk)
 
-        rms = float(np.sqrt(np.mean(chunk ** 2)))
+        rms = float(np.sqrt(np.mean(chunk**2)))
 
         if rms > self._vad_threshold:
             self.chunk_ready.emit(chunk)

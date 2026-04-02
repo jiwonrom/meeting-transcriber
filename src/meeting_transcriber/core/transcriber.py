@@ -1,4 +1,5 @@
 """whisper-cli subprocess 래퍼 — 파일 기반 전사."""
+
 from __future__ import annotations
 
 import json
@@ -88,8 +89,7 @@ class FileTranscriber:
 
         if not is_model_downloaded(model_name):
             raise WhisperModelNotFoundError(
-                f"Model '{model_name}' not downloaded. "
-                f"Expected at: {self._model_path}"
+                f"Model '{model_name}' not downloaded. Expected at: {self._model_path}"
             )
 
     def transcribe_file(
@@ -120,11 +120,15 @@ class FileTranscriber:
 
         cmd = [
             self._cli_path,
-            "-m", str(self._model_path),
-            "-l", self._language,
+            "-m",
+            str(self._model_path),
+            "-l",
+            self._language,
             "-oj",
-            "-of", str(output_base),
-            "-f", str(audio_path),
+            "-of",
+            str(output_base),
+            "-f",
+            str(audio_path),
         ]
 
         try:
@@ -136,9 +140,7 @@ class FileTranscriber:
             )
         except subprocess.TimeoutExpired as e:
             output_json.unlink(missing_ok=True)
-            raise TranscriptionError(
-                f"Transcription timed out after {timeout}s"
-            ) from e
+            raise TranscriptionError(f"Transcription timed out after {timeout}s") from e
         except OSError as e:
             output_json.unlink(missing_ok=True)
             raise TranscriptionError(f"Failed to execute whisper-cli: {e}") from e
@@ -146,8 +148,7 @@ class FileTranscriber:
         if result.returncode != 0:
             output_json.unlink(missing_ok=True)
             raise TranscriptionError(
-                f"whisper-cli exited with code {result.returncode}: "
-                f"{result.stderr[:500]}"
+                f"whisper-cli exited with code {result.returncode}: {result.stderr[:500]}"
             )
 
         # JSON 파일 읽기
@@ -217,12 +218,14 @@ def _parse_whisper_output(raw_json: str, language: str) -> list[dict[str, Any]]:
         start_ms = offsets.get("from", 0)
         end_ms = offsets.get("to", 0)
 
-        segments.append({
-            "start": start_ms / 1000.0,
-            "end": end_ms / 1000.0,
-            "text": text,
-            "language": language,
-            "confidence": 1.0,
-        })
+        segments.append(
+            {
+                "start": start_ms / 1000.0,
+                "end": end_ms / 1000.0,
+                "text": text,
+                "language": language,
+                "confidence": 1.0,
+            }
+        )
 
     return segments

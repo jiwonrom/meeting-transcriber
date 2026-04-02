@@ -1,4 +1,5 @@
 """transcriber 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import json
@@ -23,35 +24,39 @@ from meeting_transcriber.utils.exceptions import (
 
 # -- whisper-cli JSON 출력 fixtures --
 
-SAMPLE_WHISPER_OUTPUT = json.dumps({
-    "transcription": [
-        {
-            "timestamps": {"from": "00:00:00,000", "to": "00:00:02,500"},
-            "offsets": {"from": 0, "to": 2500},
-            "text": " Good morning everyone",
-        },
-        {
-            "timestamps": {"from": "00:00:02,500", "to": "00:00:05,000"},
-            "offsets": {"from": 2500, "to": 5000},
-            "text": " Let's get started",
-        },
-    ]
-})
+SAMPLE_WHISPER_OUTPUT = json.dumps(
+    {
+        "transcription": [
+            {
+                "timestamps": {"from": "00:00:00,000", "to": "00:00:02,500"},
+                "offsets": {"from": 0, "to": 2500},
+                "text": " Good morning everyone",
+            },
+            {
+                "timestamps": {"from": "00:00:02,500", "to": "00:00:05,000"},
+                "offsets": {"from": 2500, "to": 5000},
+                "text": " Let's get started",
+            },
+        ]
+    }
+)
 
-SAMPLE_WHISPER_OUTPUT_WITH_EMPTY = json.dumps({
-    "transcription": [
-        {
-            "timestamps": {"from": "00:00:00,000", "to": "00:00:01,000"},
-            "offsets": {"from": 0, "to": 1000},
-            "text": " ",
-        },
-        {
-            "timestamps": {"from": "00:00:01,000", "to": "00:00:03,000"},
-            "offsets": {"from": 1000, "to": 3000},
-            "text": " Hello",
-        },
-    ]
-})
+SAMPLE_WHISPER_OUTPUT_WITH_EMPTY = json.dumps(
+    {
+        "transcription": [
+            {
+                "timestamps": {"from": "00:00:00,000", "to": "00:00:01,000"},
+                "offsets": {"from": 0, "to": 1000},
+                "text": " ",
+            },
+            {
+                "timestamps": {"from": "00:00:01,000", "to": "00:00:03,000"},
+                "offsets": {"from": 1000, "to": 3000},
+                "text": " Hello",
+            },
+        ]
+    }
+)
 
 
 # -- _parse_whisper_output 테스트 --
@@ -237,9 +242,7 @@ def test_transcribe_file_subprocess_failure(
             transcriber.transcribe_file(audio)
 
 
-def test_transcribe_file_timeout(
-    transcriber: FileTranscriber, tmp_path: pathlib.Path
-) -> None:
+def test_transcribe_file_timeout(transcriber: FileTranscriber, tmp_path: pathlib.Path) -> None:
     """타임아웃 시 TranscriptionError를 발생시키는지 확인."""
     audio = tmp_path / "test.wav"
     audio.write_bytes(b"fake audio")
@@ -260,9 +263,7 @@ def test_transcribe_file_invalid_format(
         transcriber.transcribe_file(txt)
 
 
-def test_transcribe_file_missing(
-    transcriber: FileTranscriber, tmp_path: pathlib.Path
-) -> None:
+def test_transcribe_file_missing(transcriber: FileTranscriber, tmp_path: pathlib.Path) -> None:
     """존재하지 않는 파일에 FileNotFoundError를 발생시키는지 확인."""
     with pytest.raises(FileNotFoundError):
         transcriber.transcribe_file(tmp_path / "nonexistent.wav")

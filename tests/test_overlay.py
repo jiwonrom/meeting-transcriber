@@ -1,4 +1,5 @@
 """overlay 및 theme 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import pathlib
@@ -181,9 +182,7 @@ def test_overlay_apply_settings(qtbot: object) -> None:
     overlay = OverlayWidget(max_lines=2, font_size=15, opacity=0.8)
     qtbot.addWidget(overlay)  # type: ignore[union-attr]
 
-    overlay.apply_settings({
-        "overlay": {"lines": 4, "font_size": 22, "opacity": 0.6}
-    })
+    overlay.apply_settings({"overlay": {"lines": 4, "font_size": 22, "opacity": 0.6}})
     assert overlay._max_lines == 4
     assert overlay._font_size == 22
     assert abs(overlay._bg_opacity - 0.6) < 0.01

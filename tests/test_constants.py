@@ -1,4 +1,5 @@
 """constants 모듈 단위 테스트."""
+
 from __future__ import annotations
 
 import pathlib

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import sounddevice as sd
@@ -26,11 +27,20 @@ from meeting_transcriber.core.system_audio import (
     detect_blackhole,
     get_device_uid,
 )
+from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.utils.config import load_settings, save_settings
 from meeting_transcriber.utils.constants import AGGREGATE_DEVICE_UID
 from meeting_transcriber.utils.exceptions import SystemAudioError
 
 logger = logging.getLogger(__name__)
+
+
+def _repolish(widget: QWidget) -> None:
+    """QSS property 변경 후 스타일을 갱신한다."""
+    style = widget.style()
+    if style is not None:
+        style.unpolish(widget)
+        style.polish(widget)
 
 
 # ============================================================
@@ -92,6 +102,10 @@ class BlackHoleSetupWizard(QDialog):
         self._blackhole_uid: str = ""
         self._mic_uid: str = ""
 
+        # 테마 토큰 로드 (QPainter 위젯에 전달)
+        theme = ThemeEngine()
+        self._tokens = theme.tokens
+
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -118,7 +132,7 @@ class BlackHoleSetupWizard(QDialog):
         nav_layout.addStretch()
 
         self._step_label = QLabel("Step 1 of 5")
-        self._step_label.setStyleSheet("font-size: 11px; color: #98989D;")
+        self._step_label.setObjectName("step_indicator")
         nav_layout.addWidget(self._step_label)
 
         nav_layout.addStretch()
@@ -138,19 +152,18 @@ class BlackHoleSetupWizard(QDialog):
         layout.setSpacing(16)
 
         heading = QLabel("Capture System Audio")
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
+        heading.setObjectName("heading")
         layout.addWidget(heading)
 
         body = QLabel(
             "To transcribe the other side of calls, Scribe needs "
             "BlackHole \u2014 a free virtual audio driver."
         )
-        body.setStyleSheet("font-size: 14px;")
         body.setWordWrap(True)
         layout.addWidget(body)
 
         # 일러스트레이션 영역
-        illustration = _WaveIllustration()
+        illustration = _WaveIllustration(self._tokens)
         illustration.setFixedSize(200, 120)
         layout.addWidget(illustration, alignment=Qt.AlignmentFlag.AlignHCenter)
 
@@ -164,20 +177,16 @@ class BlackHoleSetupWizard(QDialog):
         layout.setSpacing(16)
 
         heading = QLabel("Install BlackHole")
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
+        heading.setObjectName("heading")
         layout.addWidget(heading)
 
         # Option A: Homebrew
         card_a = QFrame()
         card_a.setObjectName("install_card")
-        card_a.setStyleSheet(
-            "QFrame#install_card { border: 1px solid rgba(255,255,255,0.08); "
-            "border-radius: 6px; padding: 16px; }"
-        )
         card_a_layout = QVBoxLayout(card_a)
         card_a_layout.addWidget(QLabel("Install via Homebrew"))
         cmd_label = QLabel("brew install blackhole-2ch")
-        cmd_label.setStyleSheet("font-family: 'SF Mono', 'Menlo', monospace; font-size: 13px;")
+        cmd_label.setObjectName("mono")
         card_a_layout.addWidget(cmd_label)
         self._copy_btn = QPushButton("Copy Command")
         self._copy_btn.clicked.connect(self._copy_brew_command)
@@ -187,10 +196,6 @@ class BlackHoleSetupWizard(QDialog):
         # Option B: GitHub
         card_b = QFrame()
         card_b.setObjectName("install_card")
-        card_b.setStyleSheet(
-            "QFrame#install_card { border: 1px solid rgba(255,255,255,0.08); "
-            "border-radius: 6px; padding: 16px; }"
-        )
         card_b_layout = QVBoxLayout(card_b)
         card_b_layout.addWidget(QLabel("Download from GitHub"))
         open_btn = QPushButton("Open Download Page")
@@ -200,7 +205,7 @@ class BlackHoleSetupWizard(QDialog):
 
         # 상태 표시
         self._detection_status = QLabel("Waiting for BlackHole installation...")
-        self._detection_status.setStyleSheet("font-size: 11px; color: #6E6E73;")
+        self._detection_status.setProperty("status", "waiting")
         layout.addWidget(self._detection_status)
 
         layout.addStretch()
@@ -213,7 +218,7 @@ class BlackHoleSetupWizard(QDialog):
         layout.setSpacing(16)
 
         heading = QLabel("Route System Audio")
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
+        heading.setObjectName("heading")
         layout.addWidget(heading)
 
         body = QLabel(
@@ -221,7 +226,6 @@ class BlackHoleSetupWizard(QDialog):
             "BlackHole. Open Sound Settings and create a Multi-Output Device that "
             "sends audio to both your speakers and BlackHole."
         )
-        body.setStyleSheet("font-size: 14px;")
         body.setWordWrap(True)
         layout.addWidget(body)
 
@@ -232,7 +236,6 @@ class BlackHoleSetupWizard(QDialog):
             "(or create one in Audio MIDI Setup)\n"
             "3. Ensure both your speakers/headphones AND BlackHole 2ch are checked"
         )
-        instructions.setStyleSheet("font-size: 13px;")
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
 
@@ -250,7 +253,7 @@ class BlackHoleSetupWizard(QDialog):
             "select 'Create Multi-Output Device', then check your speakers "
             "and BlackHole 2ch."
         )
-        hint.setStyleSheet("font-size: 11px; color: #6E6E73;")
+        hint.setObjectName("caption")
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
@@ -264,27 +267,22 @@ class BlackHoleSetupWizard(QDialog):
         layout.setSpacing(16)
 
         heading = QLabel("Set Up Audio Mixing")
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
+        heading.setObjectName("heading")
         layout.addWidget(heading)
 
         body = QLabel(
             "Scribe will create an Aggregate Device that combines your "
             "microphone and BlackHole into a single input."
         )
-        body.setStyleSheet("font-size: 14px;")
         body.setWordWrap(True)
         layout.addWidget(body)
 
         # 장치 이름 미리보기
         device_preview = QFrame()
-        device_preview.setStyleSheet(
-            "border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 12px;"
-        )
+        device_preview.setObjectName("install_card")
         preview_layout = QVBoxLayout(device_preview)
         device_name_label = QLabel("Scribe Audio (Mic + System)")
-        device_name_label.setStyleSheet(
-            "font-family: 'SF Mono', 'Menlo', monospace; font-size: 14px;"
-        )
+        device_name_label.setObjectName("mono")
         preview_layout.addWidget(device_name_label)
         layout.addWidget(device_preview)
 
@@ -301,7 +299,7 @@ class BlackHoleSetupWizard(QDialog):
 
         # 상태 라벨
         self._aggregate_status = QLabel("")
-        self._aggregate_status.setStyleSheet("font-size: 13px;")
+        self._aggregate_status.setProperty("status", "info")
         self._aggregate_status.setWordWrap(True)
         layout.addWidget(self._aggregate_status)
 
@@ -315,12 +313,12 @@ class BlackHoleSetupWizard(QDialog):
         layout.setSpacing(16)
 
         # 성공 아이콘
-        success_icon = _SuccessIcon()
+        success_icon = _SuccessIcon(self._tokens)
         success_icon.setFixedSize(48, 48)
         layout.addWidget(success_icon, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         heading = QLabel("All Set!")
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
+        heading.setObjectName("heading")
         heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(heading)
 
@@ -328,7 +326,6 @@ class BlackHoleSetupWizard(QDialog):
             "System audio capture is ready. Toggle 'System Audio' next to "
             "the record button to capture both sides of your calls."
         )
-        body.setStyleSheet("font-size: 14px;")
         body.setWordWrap(True)
         body.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(body)
@@ -430,9 +427,8 @@ class BlackHoleSetupWizard(QDialog):
         if bh_index is not None:
             self._stop_detection_timer()
             self._detection_status.setText("\u2713 BlackHole detected!")
-            self._detection_status.setStyleSheet(
-                "font-size: 11px; color: #30D158; font-weight: 600;"
-            )
+            self._detection_status.setProperty("status", "success")
+            _repolish(self._detection_status)
             self._next_btn.setEnabled(True)
 
     # -- 클립보드/링크 --
@@ -514,7 +510,8 @@ class BlackHoleSetupWizard(QDialog):
         if success:
             self._aggregate_device_id = device_id
             self._aggregate_status.setText(f"\u2713 {message}")
-            self._aggregate_status.setStyleSheet("font-size: 13px; color: #30D158;")
+            self._aggregate_status.setProperty("status", "info_success")
+            _repolish(self._aggregate_status)
             self._create_device_btn.setText("Create Aggregate Device")
             self._create_device_btn.setEnabled(False)
             self._next_btn.setEnabled(True)
@@ -522,7 +519,8 @@ class BlackHoleSetupWizard(QDialog):
             self._aggregate_status.setText(
                 f"Failed to create device: {message}. Please try again."
             )
-            self._aggregate_status.setStyleSheet("font-size: 13px; color: #FF453A;")
+            self._aggregate_status.setProperty("status", "info_error")
+            _repolish(self._aggregate_status)
             self._create_device_btn.setText("Retry")
             self._create_device_btn.setEnabled(True)
             logger.error("Aggregate Device creation failed: %s", message)
@@ -535,6 +533,13 @@ class BlackHoleSetupWizard(QDialog):
 
 class _WaveIllustration(QWidget):
     """두 사인파가 합쳐지는 간단한 일러스트레이션."""
+
+    def __init__(self, tokens: dict[str, Any], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        c = tokens["colors"]
+        self._bg_color = QColor(c["background"]["elevated"])
+        self._mic_color = QColor(c["status"]["recording"])
+        self._sys_color = QColor(c["status"]["processing"])
 
     def paintEvent(self, event: object) -> None:  # noqa: N802
         """일러스트레이션을 그린다.
@@ -549,15 +554,14 @@ class _WaveIllustration(QWidget):
         h = self.height()
 
         # 배경
-        painter.setBrush(QColor("#2C2C2E"))
+        painter.setBrush(self._bg_color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(QRectF(0, 0, w, h), 8, 8)
 
         # 파형 1 (마이크 - 빨강)
-        pen1 = QPen(QColor("#FF453A"))
+        pen1 = QPen(self._mic_color)
         pen1.setWidth(2)
         painter.setPen(pen1)
-        import math
 
         mid_y = h // 3
         for x in range(0, w - 1):
@@ -566,7 +570,7 @@ class _WaveIllustration(QWidget):
             painter.drawLine(x, y1, x + 1, y2)
 
         # 파형 2 (시스템 - 주황)
-        pen2 = QPen(QColor("#FF9F0A"))
+        pen2 = QPen(self._sys_color)
         pen2.setWidth(2)
         painter.setPen(pen2)
         mid_y2 = 2 * h // 3
@@ -581,6 +585,10 @@ class _WaveIllustration(QWidget):
 class _SuccessIcon(QWidget):
     """48x48 초록색 원 안에 흰색 체크마크."""
 
+    def __init__(self, tokens: dict[str, Any], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._circle_color = QColor(tokens["colors"]["status"]["success"])
+
     def paintEvent(self, event: object) -> None:  # noqa: N802
         """성공 아이콘을 그린다.
 
@@ -591,7 +599,7 @@ class _SuccessIcon(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # 초록 원
-        painter.setBrush(QColor("#30D158"))
+        painter.setBrush(self._circle_color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QRectF(0, 0, 48, 48))
 

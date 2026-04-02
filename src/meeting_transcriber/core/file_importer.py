@@ -1,4 +1,5 @@
 """오디오 파일 검증 및 임포트."""
+
 from __future__ import annotations
 
 import pathlib
@@ -27,9 +28,7 @@ def validate_audio_file(path: pathlib.Path) -> pathlib.Path:
     suffix = path.suffix.lower()
     if suffix not in SUPPORTED_AUDIO_FORMATS:
         supported = ", ".join(SUPPORTED_AUDIO_FORMATS)
-        raise AudioFormatError(
-            f"Unsupported audio format '{suffix}'. Supported: {supported}"
-        )
+        raise AudioFormatError(f"Unsupported audio format '{suffix}'. Supported: {supported}")
 
     return path
 

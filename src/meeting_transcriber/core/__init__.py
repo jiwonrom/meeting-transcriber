@@ -1,4 +1,5 @@
 """코어 모듈 — 오디오 캡처, 전사, 파일 임포트, 모델 관리."""
+
 from meeting_transcriber.core.audio_capture import (
     AudioCaptureWorker,
     AudioDeviceInfo,
