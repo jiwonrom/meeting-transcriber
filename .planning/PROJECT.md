@@ -2,7 +2,7 @@
 
 ## What This Is
 
-macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡션으로 표시하고, 녹음/파일 임포트를 통해 다국어 transcript를 생성하며, AI 기반 요약·번역·키워드 추출을 제공한다. 모든 데이터는 로컬 우선으로 처리된다. PyQt6 + whisper.cpp + Gemini API 기반.
+macOS 네이티브 회의 인텔리전스 플랫폼. 실시간 음성 전사를 오버레이 캡션으로 표시하고, 마이크+시스템 오디오 동시 캡처, 화자 식별, 회의 유형별 AI 요약, 다중 회의 교차 분석을 제공한다. 3개 AI 프로바이더(Gemini, OpenAI, Anthropic) 지원. 모든 데이터는 로컬 우선으로 처리된다. PyQt6 + whisper.cpp 기반.
 
 ## Core Value
 
@@ -42,9 +42,13 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 - ✓ Auto meeting detection (Zoom, Teams, Meet, FaceTime) — Validated in Phase 4: Meeting Intelligence
 - ✓ Recording prompt via macOS notification with snooze — Validated in Phase 4: Meeting Intelligence
 - ✓ Cross-meeting analysis (multi-transcript selection, AI insights, metadata index) — Validated in Phase 5: Cross-Meeting Analysis
+- ✓ Per-task AI provider override (BYOK-03 backend wiring) — Validated in Phase 8: Per-Task Provider Override
+- ✓ SidebarWidget integration into MainWindow layout — Validated in Phase 7: Cross-Meeting Wiring Fixes
+- ✓ MetadataIndex v2.0 language field + speaker update hooks — Validated in Phase 7: Cross-Meeting Wiring Fixes
 
 ### Active
 
+- [ ] Per-task provider UI dropdowns in SettingsDialog (backend works, UI missing)
 - [ ] Notion export integration
 
 ### Out of Scope
@@ -57,11 +61,11 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 
 ## Context
 
-- **Codebase**: ~30 Python files across 5 modules (ui, core, ai, storage, utils)
+- **Codebase**: ~9,500 LOC Python across 5 modules (ui, core, ai, storage, utils)
 - **Architecture**: Strict unidirectional deps (ui→core, ui→ai, ai→storage), Signal/Slot for reverse communication
-- **Current state**: Phase 5 complete with 363 passing tests, all v2.0 phases done
-- **Key tech debt**: MainWindow god object (1000+ lines), no file import UI
-- **PRD**: Detailed v2.0 scope in PRD.md §4.3
+- **Current state**: v2.0 shipped (2026-04-02). 8 phases, 19 plans, 371 passing tests
+- **Key tech debt**: MainWindow god object (2000+ lines), BYOK-03 per-task UI missing, test_create_tray_icon QPixmap crash
+- **Shipped milestones**: v1.0 MVP → v1.5 Polish → v2.0 Meeting Intelligence Platform
 
 ## Constraints
 
@@ -78,9 +82,14 @@ macOS 네이티브 데스크탑 앱. 실시간 음성 전사를 오버레이 캡
 | whisper.cpp via subprocess CLI | GIL avoidance, latest builds, CoreML/Metal accel | ✓ Good |
 | PyQt6 over Electron | Single Python stack, native overlay support | ✓ Good |
 | Gemini Flash as primary AI | Low cost, fast response, covers all AI features | ✓ Good |
-| Rebrand to "Scribe" from "Meeting Transcriber" | Shorter, catchier, broader scope | — Pending |
-| BlackHole for system audio | Only viable macOS virtual audio option | — Pending |
+| Rebrand to "Scribe" from "Meeting Transcriber" | Shorter, catchier, broader scope | ✓ Good |
+| BlackHole for system audio | Only viable macOS virtual audio option | ✓ Good — Phase 2+6 |
 | pyannote for speaker diarization | Best open-source accuracy | ✓ Good — Phase 3 |
+| CoreML conversion with CPU fallback | ANE acceleration attempt, graceful degradation | ✓ Good — Phase 3 |
+| Provider pattern for AI backends | Strategy pattern enables BYOK multi-provider | ✓ Good — Phase 1 |
+| YAML-based meeting templates | User-extensible, filesystem-discoverable | ✓ Good — Phase 4 |
+| SidebarWidget injected via constructor | Clean separation, testable, no duplicate instances | ✓ Good — Phase 7 |
+| Per-task provider resolution in AITaskWorker | Task-level override without changing worker interface | ✓ Good — Phase 8 |
 
 ## Evolution
 
@@ -100,4 +109,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-02 after Phase 8 completion — Per-task AI provider override wired (BYOK-03 satisfied). v2.0 milestone complete.*
+*Last updated: 2026-04-02 after v2.0 milestone — Meeting Intelligence Platform shipped. 8 phases, 19 plans, 24/24 requirements satisfied.*

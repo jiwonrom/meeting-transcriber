@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: milestone
-status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-04-02T14:01:17.339Z"
+milestone_name: Meeting Intelligence Platform
+status: completed
+stopped_at: Milestone v2.0 archived
+last_updated: "2026-04-02T15:00:00Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 8
   completed_phases: 8
   total_plans: 19
   completed_plans: 19
-  percent: 0
+  percent: 100
 ---
 
 # Project State
@@ -21,99 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** 실시간 캡션 -- 화면 위 자막으로 회의/강의를 실시간 전사
-**Current focus:** Phase 08 — per-task-provider-override
+**Current focus:** v2.0 shipped. Planning next milestone.
 
 ## Current Position
 
-Phase: 08
-Plan: Not started
-Status: Executing Phase 08
+Phase: All complete
+Plan: All complete
+Status: v2.0 milestone archived
 Last activity: 2026-04-02
 
-Progress: [░░░░░░░░░░] 0%
-
-## Performance Metrics
-
-**Velocity:**
-
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
-
-**Recent Trend:**
-
-- Last 5 plans: -
-- Trend: -
-
-*Updated after each plan completion*
-| Phase 01 P01 | 3min | 2 tasks | 4 files |
-| Phase 01 P02 | 4min | 2 tasks | 4 files |
-| Phase 01 P03 | 4min | 3 tasks | 3 files |
-| Phase 02 P01 | 4min | 2 tasks | 8 files |
-| Phase 03 P01 | 5min | 2 tasks | 8 files |
-| Phase 03 P03 | 3min | 1 tasks | 3 files |
-| Phase 03 P02 | 5min | 3 tasks | 4 files |
-| Phase 04 P02 | 2min | 1 tasks | 5 files |
-| Phase 04 P01 | 5min | 2 tasks | 19 files |
-| Phase 04 P03 | 8min | 3 tasks | 7 files |
-| Phase 05 P01 | 4min | 2 tasks | 12 files |
-| Phase 05 P02 | 4min | 1 tasks | 2 files |
-| Phase 05 P03 | 5min | 3 tasks | 8 files |
-| Phase 07 P02 | 3min | 2 tasks | 3 files |
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [v2.0 init]: Phase 1 bundles exports + BYOK as zero-dependency quick wins
-- [v2.0 init]: Post-recording diarization before real-time (deferred RT-DIAR-01 to v3.0)
-- [v2.0 init]: BlackHole for system audio; research ScreenCaptureKit as alternative before committing
-- [Phase 01]: SRT comma separator, VTT period separator per subtitle standards
-- [Phase 01]: Same prompt strings across all providers for consistent AI output
-- [Phase 01]: FallbackProvider adapter pattern avoids modifying AITaskWorker interface
-- [Phase 01]: Lazy import via importlib for provider instantiation to avoid SDK dependency errors
-- [Phase 01]: FallbackProvider adapter passed as single AIProvider to AITaskWorker for transparent multi-provider fallback
-- [Phase 01]: Export handlers use lazy imports in TranscriptViewer to avoid circular deps
-- [Phase 02]: Lazy import CoreAudio at function level for optional pyobjc dependency
-- [Phase 02]: Private Aggregate Device (isPrivate=1) for process-scoped lifecycle
-- [Phase 03]: CPU-only for pyannote inference -- MPS sparse tensor bugs (PyTorch #143955)
-- [Phase 03]: Schema v2.0 only written when speakers provided -- v1.0 transcripts never modified on load
-- [Phase 03]: Lazy import helpers (_import_pipeline, _import_torch) for testable pyannote/torch loading
-- [Phase 03]: CoreML conversion via coremltools lazy import -- no hard dependency
-- [Phase 03]: Speaker labels rendered as HTML via setHtml() for inline styling with font-weight 600
-- [Phase 03]: HF token validation requires hf_ prefix before saving to Keychain
-- [Phase 04]: Lazy import NSWorkspace inside _poll_once() for optional pyobjc dependency
-- [Phase 04]: importlib.resources for bundled YAML template access
-- [Phase 04]: Vendor-specific JSON mode: Gemini response_mime_type, OpenAI json_object, Anthropic prompt-only
-- [Phase 04]: General template non-structured for backward compatibility with existing summarization
-- [Phase 04]: Dual QComboBox with distinct objectNames for template selection (template_combo vs rerun_template_combo)
-- [Phase 04]: Structured summary stored as dict in metadata, rendered as inline-styled HTML in QTextEdit
-- [Phase 04]: Re-run AI regenerates only summary task for efficiency
-- [Phase 05]: _build_analysis_prompt duplicated per provider for self-containment
-- [Phase 05]: blockSignals for checkbox propagation to prevent infinite recursion
-- [Phase 05]: MetadataIndex passed as optional kwarg to save_transcript/delete_recording for backward compat
-- [Phase 05]: Analysis HTML display in TranscriptViewer Summary tab with inline styles (Phase 4 pattern)
-- [Phase 07]: SidebarWidget injected via MainWindow constructor for clean separation and testability
-
-### Pending Todos
-
-None yet.
 
 ### Blockers/Concerns
 
-- [Research]: ScreenCaptureKit on macOS 15/16 may offer zero-install alternative to BlackHole -- verify before future system audio refactor
-
-## Session Continuity
-
-Last session: 2026-04-02T13:36:42.017Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-per-task-provider-override/08-CONTEXT.md
+- [Research]: ScreenCaptureKit on macOS 15/16 may offer zero-install alternative to BlackHole
+- [Tech debt]: BYOK-03 per-task provider UI dropdowns missing in SettingsDialog
+- [Tech debt]: MainWindow exceeds 2000 lines — consider extracting RecordingSession orchestrator
