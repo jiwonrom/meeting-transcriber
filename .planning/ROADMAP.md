@@ -142,7 +142,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — MetadataIndex language field fix + speaker update index wiring
+- [x] 07-01-PLAN.md — MetadataIndex language field fix + speaker update index wiring
 - [ ] 07-02-PLAN.md — SidebarWidget layout integration into MainWindow
 
 **UI hint**: yes
