@@ -158,7 +158,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 08-01-PLAN.md — AITaskWorker per-task provider resolution + call site wiring
+- [x] 08-01-PLAN.md — AITaskWorker per-task provider resolution + call site wiring
 
 **UI hint**: no
 

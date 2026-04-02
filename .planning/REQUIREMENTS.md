@@ -16,7 +16,7 @@
 
 - [x] **BYOK-01**: User can add their own OpenAI API key in Preferences
 - [x] **BYOK-02**: User can add their own Anthropic API key in Preferences
-- [ ] **BYOK-03**: User can select which AI provider to use for each task (summarize, proofread, translate)
+- [x] **BYOK-03**: User can select which AI provider to use for each task (summarize, proofread, translate)
 - [x] **BYOK-04**: App falls back to next provider if primary fails
 
 ### System Audio
@@ -79,7 +79,7 @@
 | EXP-04 | Phase 1 | Complete |
 | BYOK-01 | Phase 1 | Complete |
 | BYOK-02 | Phase 1 | Complete |
-| BYOK-03 | Phase 8 | Pending |
+| BYOK-03 | Phase 8 | Complete |
 | BYOK-04 | Phase 1 | Complete |
 | SYSAUD-01 | Phase 6 | Complete |
 | SYSAUD-02 | Phase 6 | Complete |
