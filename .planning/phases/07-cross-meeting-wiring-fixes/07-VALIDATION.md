@@ -19,7 +19,7 @@ created: 2026-04-02
 |----------|-------|
 | **Framework** | pytest 8.x |
 | **Config file** | pyproject.toml `[tool.pytest.ini_options]` |
-| **Quick run command** | `pytest tests/test_metadata_index.py tests/test_sidebar.py tests/test_storage.py -x --tb=short -q` |
+| **Quick run command** | `pytest tests/test_metadata_index.py tests/test_sidebar.py tests/test_main_window.py -x --tb=short -q` |
 | **Full suite command** | `pytest tests/ -x --tb=short -v` |
 | **Estimated runtime** | ~4 seconds |
 
@@ -27,7 +27,7 @@ created: 2026-04-02
 
 ## Sampling Rate
 
-- **After every task commit:** Run `pytest tests/test_metadata_index.py tests/test_sidebar.py tests/test_storage.py -x --tb=short -q`
+- **After every task commit:** Run `pytest tests/test_metadata_index.py tests/test_sidebar.py tests/test_main_window.py -x --tb=short -q`
 - **After every plan wave:** Run `pytest tests/ -x --tb=short -v`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 5 seconds
@@ -38,9 +38,10 @@ created: 2026-04-02
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 07-01-01 | 01 | 1 | CMA-01 | integration | `pytest tests/test_sidebar.py tests/test_main_window.py -k "sidebar" -x -v` | TBD | pending |
-| 07-01-02 | 01 | 1 | CMA-03 | unit | `pytest tests/test_metadata_index.py -x -v` | existing | pending |
-| 07-01-03 | 01 | 1 | CMA-03 | unit | `pytest tests/test_storage.py -k "speakers" -x -v` | existing | pending |
+| 07-01-01 | 01 | 1 | CMA-03 | unit+tdd | `pytest tests/test_metadata_index.py -x -v` | existing | pending |
+| 07-01-02 | 01 | 1 | CMA-03 | unit+tdd | `pytest tests/test_metadata_index.py -x -v` | existing | pending |
+| 07-02-01 | 02 | 2 | CMA-01 | integration | `pytest tests/test_main_window.py tests/test_sidebar.py -x -v` | existing | pending |
+| 07-02-02 | 02 | 2 | CMA-01 | import | `python -c "from meeting_transcriber.app import main"` | n/a | pending |
 
 *Status: pending · green · red · flaky*
 
