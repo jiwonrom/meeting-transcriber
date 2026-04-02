@@ -122,6 +122,10 @@ Plans:
   1. User can select system audio (via BlackHole) as an input source from recording controls
   2. Phase 2 VERIFICATION.md exists and all 4 SYSAUD requirements pass formal verification
   3. ROADMAP status for Phase 2 is accurate
+**Plans:** 1 plan
+
+Plans:
+- [ ] 06-01-PLAN.md — Formal verification of Phase 2 + documentation updates
 
 **UI hint**: yes
 
@@ -161,6 +165,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 3. Speaker Diarization | 3/3 | Complete | - |
 | 4. Meeting Intelligence | 3/3 | Complete | - |
 | 5. Cross-Meeting Analysis | 3/3 | Complete | - |
-| 6. System Audio Completion & Verification | 0/? | Pending | |
+| 6. System Audio Completion & Verification | 0/1 | Pending | |
 | 7. Cross-Meeting Analysis Wiring Fixes | 0/? | Pending | |
 | 8. Per-Task AI Provider Override | 0/? | Pending | |
