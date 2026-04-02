@@ -21,10 +21,10 @@
 
 ### System Audio
 
-- [ ] **SYSAUD-01**: App detects whether BlackHole virtual audio driver is installed
-- [ ] **SYSAUD-02**: App provides guided setup wizard for BlackHole installation and Aggregate Device creation
-- [ ] **SYSAUD-03**: User can select system audio (via BlackHole) as input source alongside microphone
-- [ ] **SYSAUD-04**: User can capture both microphone and system audio simultaneously (dual-channel)
+- [x] **SYSAUD-01**: App detects whether BlackHole virtual audio driver is installed
+- [x] **SYSAUD-02**: App provides guided setup wizard for BlackHole installation and Aggregate Device creation
+- [x] **SYSAUD-03**: User can select system audio (via BlackHole) as input source alongside microphone
+- [x] **SYSAUD-04**: User can capture both microphone and system audio simultaneously (dual-channel)
 
 ### Speaker Diarization
 
@@ -81,10 +81,10 @@
 | BYOK-02 | Phase 1 | Complete |
 | BYOK-03 | Phase 8 | Pending |
 | BYOK-04 | Phase 1 | Complete |
-| SYSAUD-01 | Phase 6 | Pending |
-| SYSAUD-02 | Phase 6 | Pending |
-| SYSAUD-03 | Phase 6 | Pending |
-| SYSAUD-04 | Phase 6 | Pending |
+| SYSAUD-01 | Phase 6 | Complete |
+| SYSAUD-02 | Phase 6 | Complete |
+| SYSAUD-03 | Phase 6 | Complete |
+| SYSAUD-04 | Phase 6 | Complete |
 | DIAR-01 | Phase 3 | Complete |
 | DIAR-02 | Phase 3 | Complete |
 | DIAR-03 | Phase 3 | Complete |
