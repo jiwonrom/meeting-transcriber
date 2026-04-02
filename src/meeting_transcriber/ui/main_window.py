@@ -8,13 +8,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
-from PyQt6.QtCore import QSize, Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QProgressBar,
     QPushButton,
@@ -34,6 +32,7 @@ from meeting_transcriber.storage.transcript_store import (
     save_transcript,
 )
 from meeting_transcriber.storage.workspace import WorkspaceManager
+from meeting_transcriber.ui.sidebar import SidebarWidget
 from meeting_transcriber.ui.theme import ThemeEngine
 from meeting_transcriber.utils.config import load_settings
 from meeting_transcriber.utils.constants import APP_NAME
@@ -91,38 +90,6 @@ class RecordButton(QPushButton):
         painter.drawEllipse(rx, ry, ring_size, ring_size)
 
         painter.end()
-
-
-# ============================================================
-# 녹음 리스트 아이템
-# ============================================================
-
-
-class RecordingListItem(QWidget):
-    """사이드바 녹음 항목 — 제목, 날짜, 길이."""
-
-    def __init__(self, title: str, date: str, duration: str, parent: Any = None) -> None:
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 8, 16, 8)
-        layout.setSpacing(2)
-
-        self._title = QLabel(title)
-        self._title.setFont(QFont("", 14, QFont.Weight.Medium))
-        layout.addWidget(self._title)
-
-        info = QHBoxLayout()
-        info.setSpacing(8)
-        self._date = QLabel(date)
-        self._date.setObjectName("caption")
-        info.addWidget(self._date)
-
-        self._duration = QLabel(duration)
-        self._duration.setObjectName("caption")
-        info.addWidget(self._duration)
-        info.addStretch()
-
-        layout.addLayout(info)
 
 
 # ============================================================
@@ -387,10 +354,12 @@ class MainWindow(QMainWindow):
     def __init__(
         self,
         workspace: WorkspaceManager | None = None,
+        sidebar: SidebarWidget | None = None,
         parent: Any = None,
     ) -> None:
         super().__init__(parent)
         self._workspace = workspace or WorkspaceManager()
+        self._sidebar = sidebar or SidebarWidget(workspace=self._workspace)
         self._theme = ThemeEngine()
         self._audio_worker: AudioCaptureWorker | None = None
         self._transcription_worker: TranscriptionWorkerThread | None = None
@@ -418,24 +387,8 @@ class MainWindow(QMainWindow):
         # 상단: 스플리터 (사이드바 | 콘텐츠)
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # 왼쪽: 녹음 리스트
-        sidebar = QWidget()
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.setSpacing(0)
-
-        sidebar_header = QLabel("  Recordings")
-        sidebar_header.setFont(QFont("", 13, QFont.Weight.Bold))
-        sidebar_header.setFixedHeight(40)
-        sidebar_header.setStyleSheet("padding-left: 16px;")
-        sidebar_layout.addWidget(sidebar_header)
-
-        self._recording_list = QListWidget()
-        # 스타일은 ThemeEngine QSS에서 적용
-        self._recording_list.currentItemChanged.connect(self._on_recording_selected)
-        sidebar_layout.addWidget(self._recording_list)
-
-        self._splitter.addWidget(sidebar)
+        # 왼쪽: 사이드바
+        self._splitter.addWidget(self._sidebar)
 
         # 오른쪽: 콘텐츠
         self._content_stack = QWidget()
@@ -529,41 +482,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_recording_list(self) -> None:
         """사이드바 녹음 목록을 갱신한다."""
-        self._recording_list.clear()
-        folders = self._workspace.list_folders()
-
-        for folder in folders:
-            transcripts = self._workspace.list_transcripts(folder.name)
-            for t_path in transcripts:
-                try:
-                    transcript = load_transcript(t_path)
-                except Exception:
-                    continue
-
-                meta = transcript.get("metadata", {})
-                title = meta.get("title", t_path.parent.name)
-                duration = _fmt_duration(meta.get("duration_seconds", 0))
-                created = meta.get("created_at", "")[:10]
-
-                item = QListWidgetItem()
-                item.setData(Qt.ItemDataRole.UserRole, str(t_path))
-                item.setSizeHint(QSize(0, 56))
-
-                widget = RecordingListItem(title, created, duration)
-                self._recording_list.addItem(item)
-                self._recording_list.setItemWidget(item, widget)
-
-    def _on_recording_selected(
-        self, current: QListWidgetItem | None, previous: QListWidgetItem | None
-    ) -> None:
-        """녹음 항목 선택 시 뷰어에 표시한다."""
-        if current is None:
-            return
-        path = current.data(Qt.ItemDataRole.UserRole)
-        if path:
-            self._empty_state.hide()
-            self._transcript_viewer.show()
-            self._transcript_viewer.display_transcript(path)
+        self._sidebar.refresh()
 
     # -- 녹음 컨트롤 --
 
@@ -834,9 +753,9 @@ class MainWindow(QMainWindow):
         return self._is_recording
 
     @property
-    def sidebar(self) -> QListWidget:
-        """녹음 리스트 위젯."""
-        return self._recording_list
+    def sidebar(self) -> SidebarWidget:
+        """사이드바 위젯."""
+        return self._sidebar
 
     @property
     def transcript_viewer(self) -> TranscriptViewer:
