@@ -1262,7 +1262,7 @@ class MainWindow(QMainWindow):
 
     def _run_ai_tasks(self, result: TranscriptionResult, transcript_path: pathlib.Path) -> None:
         """전사 결과에 AI 처리(교열, 요약, 키워드, 제목)를 실행한다."""
-        from meeting_transcriber.ai.provider_manager import FallbackProvider, ProviderManager
+        from meeting_transcriber.ai.provider_manager import ProviderManager
         from meeting_transcriber.ai.tasks import AITaskWorker
 
         settings = load_settings()
@@ -1280,10 +1280,6 @@ class MainWindow(QMainWindow):
         if not full_text.strip():
             return
 
-        # FallbackProvider wraps the full chain — each AI method call
-        # automatically tries the next provider on failure (per D-13, BYOK-04)
-        provider = FallbackProvider(manager, chain)
-
         # 템플릿 프롬프트 렌더링
         template_key = self._get_selected_template_key()
         template = self._template_manager.get(template_key)
@@ -1296,7 +1292,8 @@ class MainWindow(QMainWindow):
 
         try:
             self._ai_worker = AITaskWorker(
-                provider=provider,
+                provider_manager=manager,
+                settings=settings,
                 text=full_text,
                 language=result.language,
                 template_prompt=template_prompt,
@@ -1305,7 +1302,7 @@ class MainWindow(QMainWindow):
             # After worker finishes, check for fallback messages and display per D-14
             self._ai_worker.finished.connect(
                 lambda ai_result: self._on_ai_done_with_fallback(
-                    ai_result, transcript_path, provider
+                    ai_result, transcript_path, self._ai_worker
                 )
             )
             self._ai_worker.start()
@@ -1392,7 +1389,7 @@ class MainWindow(QMainWindow):
         settings = load_settings()
         manager = ProviderManager()
         try:
-            chain = manager.get_provider_chain(settings)
+            chain = manager.get_provider_for_task("summarize", settings)
         except Exception:
             return
         if not chain:
@@ -1415,7 +1412,8 @@ class MainWindow(QMainWindow):
 
         try:
             self._ai_worker = AITaskWorker(
-                provider=provider,
+                provider_manager=manager,
+                settings=settings,
                 text=full_text,
                 language="auto",
                 template_prompt=template_prompt,
@@ -1641,7 +1639,7 @@ class MainWindow(QMainWindow):
         settings = load_settings()
         manager = ProviderManager()
         try:
-            chain = manager.get_provider_chain(settings)
+            chain = manager.get_provider_for_task("analyze", settings)
         except Exception:
             self._status_bar.showMessage("AI provider not configured")
             return
